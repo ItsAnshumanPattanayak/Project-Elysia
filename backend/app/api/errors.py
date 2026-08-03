@@ -12,6 +12,7 @@ from app.character_engine.exceptions import (
     UnsafeCharacterPathError,
     UnsupportedCharacterSchemaVersionError,
 )
+from app.services.conversation_errors import ConversationError
 
 
 def error_payload(
@@ -84,3 +85,12 @@ CHARACTER_ERRORS = (
     UnsupportedCharacterSchemaVersionError,
     UnsafeCharacterPathError,
 )
+
+
+async def conversation_error_handler(_: Request, exc: Exception) -> JSONResponse:
+    if not isinstance(exc, ConversationError):
+        raise exc
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=error_payload(exc.code, exc.message, exc.retryable, exc.details),
+    )

@@ -18,8 +18,12 @@ The development reset command accepts only `--yes`, only in development/test, on
 
 Local-first is a privacy boundary, not a substitute for device security. Anyone with access to the Windows account or database file may be able to read stored conversations; future at-rest protection must be documented honestly if added.
 
-## Batch 2 prompt and provider boundaries
+## Prompt, provider, and persistence boundaries
 
 Only safe lowercase hyphenated slugs can select configuration files, and resolved files must remain inside approved directories. API requests cannot provide an Ollama URL. Scenes, summaries, memories, and messages are labelled as untrusted narrative data and cannot redefine system sections. This reduces straightforward prompt injection but does not solve it completely; local models may still follow adversarial text, so output remains untrusted and is validated before rendering.
 
-Normal logs contain status and error metadata, not complete prompts or private messages. Ollama traffic defaults to loopback, credentials in provider URLs are rejected, no cloud fallback exists, and model pulling is never automatic. Output and context limits reduce accidental resource exhaustion. Generation and prompt preview perform no database writes.
+Normal logs contain status and error metadata, not complete prompts or private messages. Ollama traffic defaults to loopback, credentials in provider URLs are rejected, no cloud fallback exists, and model pulling is never automatic. Output, message, pagination, context, and stream-accumulation limits reduce accidental resource exhaustion.
+
+Persistent conversation endpoints store private user and completed character text in local SQLite. User messages intentionally remain after provider failure so retry is explicit and auditable; partial model output is never stored. Editing/deleting earlier history requires explicit truncation confirmation. Conversation deletion removes owned messages, memories, and relationship state but preserves shared character/profile records.
+
+Single-process locks prevent normal simultaneous sends from duplicating sequence positions. They are not a security boundary or distributed coordination mechanism. Optional client IDs are application-checked using persisted metadata but have no dedicated database uniqueness constraint. The application remains designed for one local process and is not ready for public hosting or untrusted multi-user access.

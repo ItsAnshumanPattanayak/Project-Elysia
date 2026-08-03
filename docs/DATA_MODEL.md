@@ -1,26 +1,36 @@
-# Batch 1 Data Model
+# Data Model
 
 ## Entities
 
-- **Character:** one fictional persona, identified by unique indexed `slug`; stores identity text, JSON personality/speaking/behaviour configuration, greeting and future prompt template. It has many conversations.
-- **RoleplayProfile:** editable fictional user-side story identity—not authentication data. It has many conversations.
-- **Conversation:** joins one character and one roleplay profile; stores title, summary, scene, stage, and lifecycle flags. It owns messages, memories, and at most one relationship state.
-- **Message:** an ordered user, character, or system record with raw content and optional narration/dialogue/emotion/metadata. `(conversation_id, sequence_number)` is unique.
-- **RelationshipState:** exactly zero or one state per conversation at the schema level, with unique foreign key. Seven bounded 0–100 values, mood, stage, turns, and future locks are persisted; no update algorithm exists yet.
-- **Memory:** a conversation-scoped candidate fact/event with type, content, tags, importance 1–5, emotional value -100–100, lifecycle flags, optional source message, and recall timestamp. Source deletion sets the reference to null.
-- **ApplicationSetting:** a unique indexed key and JSON value with category and description. It is local application configuration, not a secret store.
-
-## Relationships and deletion
+- **Character:** unique local fictional persona referenced by conversations.
+- **RoleplayProfile:** editable fictional user-side identity, not authentication data.
+- **Conversation:** character/profile association plus title, scene, summary, relationship-stage text, and lifecycle flags.
+- **Message:** ordered `user`, `character`, or internal `system` record. `(conversation_id, sequence_number)` is unique. JSON metadata stores bounded generation metadata, optional client ID, parse status, and regeneration count.
+- **RelationshipState:** one state per conversation with seven bounded scores, mood, stage, and `turn_count`.
+- **Memory:** conversation-scoped future memory data with an optional source message.
+- **ApplicationSetting:** local JSON configuration, not a secret store.
 
 ```text
 Character 1 ── * Conversation * ── 1 RoleplayProfile
                        │
-                       ├── * Message ── 0..* source for Memory
+                       ├── * Message
                        ├── * Memory
                        └── 0..1 RelationshipState
 ```
 
-Conversation-owned messages, memories, and relationship state use ORM delete-orphan semantics when an explicit application operation deletes a conversation. Character and roleplay profile links do not use database cascading, preventing their deletion while referenced. A deleted source message sets a memory's optional source reference to null at the database level. Future service APIs must add confirmation, archive-first behavior, and transaction handling before exposing deletion.
+## Batch 3 invariants
 
-All entities use integer primary keys. Mutable entities carry UTC-aware `created_at` and `updated_at`; messages use `created_at` plus optional `edited_at`. SQLite may return naive datetime objects despite timezone metadata, so application boundaries must normalize to UTC. JSON is suitable for flexible local configuration but fields that drive integrity remain relational or constrained.
+- Sequence allocation uses the current maximum plus one and is protected by the process-local conversation lock plus the existing unique constraint.
+- A turn is one persisted character response completing a user-to-character exchange.
+- Turn count is authoritatively recalculated from persisted character messages after history changes.
+- User-only failed/cancelled requests contribute no turn.
+- Replacing an existing character response during regeneration preserves its sequence and turn count.
+- Editing or deleting earlier history truncates all later messages after explicit confirmation; messages are not renumbered.
+- Future sequence allocation remains `max(sequence_number) + 1`.
+- No automatic relationship values, memories, or summaries are produced.
 
+## Deletion
+
+Explicit conversation deletion uses existing ORM delete-orphan ownership for its messages, memories, and relationship state. Character and roleplay-profile rows remain intact. Deleting a source message leaves any retained memory source nullable through the existing foreign-key behavior. Archived conversations are readable and remain stored.
+
+No schema migration was needed for Batch 3. Persisted JSON metadata supports the optional client ID and generation audit fields without speculative columns; this means client-ID uniqueness is application-enforced within the local single-process workflow rather than a dedicated database constraint.

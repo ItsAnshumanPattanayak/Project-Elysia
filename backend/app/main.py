@@ -12,6 +12,7 @@ from app.api.errors import (
     CHARACTER_ERRORS,
     ai_error_handler,
     character_error_handler,
+    conversation_error_handler,
     validation_error_handler,
 )
 from app.api.router import api_router
@@ -20,6 +21,7 @@ from app.core.constants import APP_DESCRIPTION
 from app.core.logging import configure_logging
 from app.db.session import engine
 from app.services.ai_service import get_ai_service
+from app.services.conversation_errors import ConversationError
 
 settings = get_settings()
 configure_logging(settings.log_level)
@@ -53,11 +55,12 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=[settings.frontend_origin],
         allow_credentials=False,
-        allow_methods=["GET", "POST"],
+        allow_methods=["GET", "POST", "PATCH", "DELETE"],
         allow_headers=["Content-Type"],
     )
     application.include_router(api_router)
     application.add_exception_handler(AIError, ai_error_handler)
+    application.add_exception_handler(ConversationError, conversation_error_handler)
     for error_type in CHARACTER_ERRORS:
         application.add_exception_handler(error_type, character_error_handler)
     application.add_exception_handler(RequestValidationError, validation_error_handler)

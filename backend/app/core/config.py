@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "Project Elysia"
-    app_version: str = "0.2.0"
+    app_version: str = "0.3.0"
     environment: str = "development"
     debug: bool = True
     api_host: str = "127.0.0.1"
@@ -38,6 +38,14 @@ class Settings(BaseSettings):
     ollama_context_size: int = Field(default=4096, ge=512, le=131072)
     ollama_max_output_tokens: int = Field(default=700, ge=32, le=4096)
     ollama_status_cache_ttl_seconds: float = Field(default=10, ge=0, le=300)
+    conversation_recent_message_limit: int = Field(default=20, ge=1, le=30)
+    conversation_list_default_limit: int = Field(default=20, ge=1, le=100)
+    conversation_list_max_limit: int = Field(default=100, ge=1, le=200)
+    message_list_default_limit: int = Field(default=50, ge=1, le=200)
+    message_list_max_limit: int = Field(default=200, ge=1, le=500)
+    message_max_content_length: int = Field(default=10000, ge=1, le=20000)
+    conversation_lock_timeout_seconds: float = Field(default=1, gt=0, le=30)
+    stream_max_accumulated_characters: int = Field(default=50000, ge=1000, le=200000)
 
     @field_validator("log_level")
     @classmethod

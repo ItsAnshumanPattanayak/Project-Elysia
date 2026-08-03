@@ -1,4 +1,4 @@
-# Future Roleplay Response Contract
+# Roleplay Response Contract
 
 The intended visual form is:
 
@@ -31,4 +31,6 @@ The future backend-normalized representation is:
 
 Batch 2 requests this JSON contract through local Ollama and validates it with Pydantic. Valid JSON receives `parse_status: structured`. Markdown-fenced JSON is accepted defensively. Noncompliant plain text receives `parse_status: plain_text_fallback`; visible `*narration*` and attributed dialogue are extracted where possible, while the raw text is preserved.
 
-Relationship events and memory candidates are descriptive output only. Batch 2 never changes scores, increments turns, saves messages, or stores memories. Streaming emits `start`, ordered `token`, `metadata`, then `completed`; failures use a terminal `error` event.
+Relationship events and memory candidates remain descriptive model output only; Batch 3 does not apply scores or create memories from them. Persistent sends store validated narration, dialogue, emotion, raw text, parse status, and bounded generation metadata. A turn increments only when one completed character message is persisted.
+
+Conversation streaming wraps provider events with persistence lifecycle events: `accepted`, `user_message`, `start`, ordered `token`, `metadata`, and `completed`. A terminal `error` or `cancelled` never persists partial character text. The older `/api/ai/generate/stream` development endpoint retains its Batch 2 stateless event contract.

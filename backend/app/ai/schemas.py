@@ -77,7 +77,16 @@ class GenerationResult(BaseModel):
 
 
 class StreamEvent(BaseModel):
-    event: Literal["start", "token", "metadata", "completed", "error"]
+    event: Literal[
+        "accepted",
+        "user_message",
+        "start",
+        "token",
+        "metadata",
+        "completed",
+        "error",
+        "cancelled",
+    ]
     data: dict[str, Any]
 
 

@@ -1,3 +1,4 @@
+import asyncio
 import os
 from collections.abc import AsyncIterator, Generator
 
@@ -9,7 +10,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session, sessionmaker
 
 from app import models  # noqa: F401
-from app.ai.exceptions import OllamaStreamInterruptedError
+from app.ai.exceptions import AIError, OllamaStreamInterruptedError
 from app.ai.parser import parse_roleplay_response
 from app.ai.schemas import (
     AIModelDetails,
@@ -31,7 +32,13 @@ class FakeProvider:
     def __init__(self) -> None:
         self.state: AIState = "ready"
         self.generate_calls = 0
+        self.stream_calls = 0
         self.stream_error = False
+        self.generate_error: AIError | None = None
+        self.delay_seconds = 0.0
+        self.plain_text = False
+        self.prompts: list[PromptPackage] = []
+        self.stream_tokens = ["Tum ", "theek ho?"]
 
     async def aclose(self) -> None:
         return None
@@ -70,13 +77,21 @@ class FakeProvider:
     async def generate(
         self, prompt: PromptPackage, model: str | None = None
     ) -> GenerationResult:
-        del prompt
+        self.prompts.append(prompt)
         self.generate_calls += 1
+        if self.delay_seconds:
+            await asyncio.sleep(self.delay_seconds)
+        if self.generate_error:
+            raise self.generate_error
         text = (
-            '{"narration_blocks":["Zara looks up."],'
-            '"dialogue_blocks":["Tum theek ho?"],"emotion":"concerned",'
-            '"relationship_event":"supportive","memory_candidates":[],'
-            '"raw_text":"*Zara looks up.*"}'
+            "Tum theek ho?"
+            if self.plain_text
+            else (
+                '{"narration_blocks":["Zara looks up."],'
+                '"dialogue_blocks":["Tum theek ho?"],"emotion":"concerned",'
+                '"relationship_event":"supportive","memory_candidates":[],'
+                '"raw_text":"*Zara looks up.* Tum theek ho?"}'
+            )
         )
         parsed, status = parse_roleplay_response(text)
         return GenerationResult(
@@ -91,16 +106,19 @@ class FakeProvider:
     async def stream_generate(
         self, prompt: PromptPackage, model: str | None = None
     ) -> AsyncIterator[StreamEvent]:
-        del prompt
+        self.prompts.append(prompt)
+        self.stream_calls += 1
         if self.stream_error:
             raise OllamaStreamInterruptedError("Stream failed in test.")
         yield StreamEvent(event="start", data={"model": model or "test-model"})
-        yield StreamEvent(event="token", data={"text": "Tum "})
-        yield StreamEvent(event="token", data={"text": "theek ho?"})
+        for token in self.stream_tokens:
+            if self.delay_seconds:
+                await asyncio.sleep(self.delay_seconds)
+            yield StreamEvent(event="token", data={"text": token})
         yield StreamEvent(
             event="metadata", data={"parse_status": "plain_text_fallback"}
         )
-        yield StreamEvent(event="completed", data={"text": "Tum theek ho?"})
+        yield StreamEvent(event="completed", data={"text": "".join(self.stream_tokens)})
 
 
 @pytest.fixture

@@ -1,0 +1,39 @@
+# Conversation API
+
+All endpoints are local-development APIs under `/api/conversations`. Errors use `{ "error": { "code", "message", "details", "retryable" } }`; they never include prompts, model output, stack traces, secrets, or filesystem paths.
+
+## Conversations
+
+- `POST /api/conversations` validates local character/profile definitions, resolves their seeded database rows, creates a relationship state, and never calls AI.
+- `GET /api/conversations` supports `limit`, `offset`, `archived`, `active`, and optional `character_slug`. Ordering is latest `updated_at`, then latest ID.
+- `GET /api/conversations/{id}` returns a relationship snapshot and at most ten recent-message previews, never unbounded history.
+- `PATCH /api/conversations/{id}` updates title, scene, relationship-stage text, active state, or archive state.
+- `DELETE /api/conversations/{id}` explicitly deletes conversation-owned data without deleting its character/profile.
+
+## Messages
+
+- `GET /api/conversations/{id}/messages` returns stable ascending sequence order with bounded offset pagination.
+- `POST /api/conversations/{id}/messages` persists a user message, generates, then persists one completed character message.
+- `POST /api/conversations/{id}/messages/stream` uses SSE: `accepted`, `user_message`, `start`, ordered `token`, `metadata`, `completed`; failure uses `error` and disconnection/cancellation uses `cancelled` when delivery remains possible.
+- `POST /api/conversations/{id}/messages/regenerate` replaces the latest character response after successful generation. If the latest message is an unanswered user message, it completes that exchange instead.
+- `PATCH /api/conversations/{id}/messages/{message_id}` edits user messages only. Earlier edits require `confirm_truncate_following_messages` in the JSON body.
+- `DELETE /api/conversations/{id}/messages/{message_id}` deletes the selected message and, when required and confirmed by the same-named query parameter, all following messages.
+
+## Send request
+
+```json
+{
+  "content": "Aaj ka din bahut tiring tha.",
+  "client_message_id": "desktop-001",
+  "behaviour_hint": "concern",
+  "response_length": "concise",
+  "language_mode": "natural Hinglish",
+  "generation_overrides": { "max_output_tokens": 200, "seed": 42 }
+}
+```
+
+Clients cannot supply a system prompt, provider URL, file path, or sender. Overrides use the Batch 2 safe bounds. `client_message_id` is optional, bounded, safe-character validated, and unique by application policy within one conversation.
+
+## Pagination
+
+Conversation defaults/maxima are 20/100. Message defaults/maxima are 50/200. Negative offsets and limits outside configured bounds are rejected. Responses contain `total`, `limit`, `offset`, and `has_more`.

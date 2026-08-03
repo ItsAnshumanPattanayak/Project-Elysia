@@ -1,29 +1,41 @@
 # Architecture
 
 ```text
-React browser application
-        ↓ HTTP on loopback
-FastAPI local backend
-        ↓
-Application services
-        ↓
-SQLite database
-        ↓ future provider call
-Local Ollama model
+FastAPI routes
+    ↓
+ConversationService ──→ ConversationLockService
+    ↓                         ↓
+repositories              process-local lock
+    ↓
+SQLAlchemy / SQLite
+
+ConversationService → ConversationContextBuilder
+    → CharacterPromptBuilder → AIService → local Ollama provider
 ```
 
-The **React frontend** owns navigation, accessible presentation, request states, and—later—chat interaction. It does not read SQLite or calculate authoritative relationship state. The **FastAPI API** validates transport data, applies CORS for the local Vite origin, returns safe metadata, and will eventually expose conversation commands. Batch 1 intentionally exposes only root, health, and system information.
+The React application still provides only the Batch 2/3 foundation status screen. It does not read SQLite, calculate authoritative state, or expose an unfinished chat UI.
 
-The **service layer** holds use-case rules and transaction boundaries. It currently performs database health checking and idempotent seeding. Future conversation, relationship, memory, and generation services belong here rather than in routes or ORM models. The **database layer** uses SQLAlchemy 2 declarative mappings, Alembic migrations, explicit relationships, constraints, and a local SQLite file resolved from the backend directory.
+Routes validate transport data, translate safe domain errors, and frame SSE. `ConversationService` owns use-case rules and commits. Repositories contain SQLAlchemy access and never commit unexpectedly. The context builder loads bounded chronological messages and read-only scene, summary, and relationship values, then reuses the existing character engine. Provider HTTP and parsing stay in the Batch 2 AI modules.
 
-## Future components
+## Transactions and slow generation
 
-- **AI provider abstraction — Batch 2:** an async local Ollama adapter behind a typed protocol, with model discovery, readiness caching, bounded options, cancellation-aware streaming, and structured-output validation. No paid provider or cloud fallback exists.
-- **Memory engine — not implemented:** candidate extraction, validation, deduplication, importance scoring, user review, scoped retrieval, and recall auditing.
-- **Relationship engine — not implemented:** deterministic bounded events, transparent score changes, locks, stages, and rollback; the model will not write scores directly.
+User persistence and completed character persistence use separate short transactions. The backend deliberately does not keep an open database transaction during model inference. A failed provider call therefore leaves the accepted user message but no character message or turn increment. A character-persistence failure rolls back the character transaction while preserving the earlier user commit.
 
-## Batch 2 character and generation flow
+Streaming accumulates bounded output only in memory. Completion is parsed and persisted atomically; errors, cancellation, interruption, or disconnect never save partial character output.
 
-Versioned UTF-8 JSON files are validated into nested Pydantic models by a slug-only loader rooted at `backend/characters`. The deterministic prompt builder labels trusted system rules separately from untrusted scenes, memories, summaries, and messages. `AIService` coordinates this engine with the provider protocol. `OllamaProvider` converts prompt packages to `/api/chat`, parses JSON or a plain-text fallback, and exposes non-streaming results or ordered SSE events. Preview and generation do not mutate SQLite.
+## Concurrency and idempotency
 
-Configuration comes from typed environment settings. Startup checks connectivity but does not create schemas; Alembic is the single normal schema authority. Tests replace persistence with isolated in-memory SQLite. Logs are human-readable and configured once.
+An async lock registry is keyed by conversation ID. Contention waits only for the configured short timeout and then returns `conversation_busy`. Reference counts remove idle lock entries after success, error, timeout, or cancellation. This protects a single local backend process, not multiple workers.
+
+Optional `client_message_id` values are stored in user-message JSON metadata and checked under the lock. Completed duplicates return the prior stored generation result; an accepted request without a completed reply returns a deterministic conflict. Sequence uniqueness remains protected by the existing database constraint.
+
+## Deferred components
+
+- Relationship scoring, mood calculation, and stage progression
+- Memory extraction, relevance search, and recall
+- Conversation summarization
+- Story branches and checkpoints
+- Distributed locks
+- Finished chat frontend
+
+Configuration remains typed, Alembic remains the schema authority, and tests replace persistence/provider dependencies with isolated deterministic implementations.
