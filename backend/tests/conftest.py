@@ -39,6 +39,7 @@ class FakeProvider:
         self.plain_text = False
         self.prompts: list[PromptPackage] = []
         self.stream_tokens = ["Tum ", "theek ho?"]
+        self.response_text: str | None = None
 
     async def aclose(self) -> None:
         return None
@@ -83,7 +84,7 @@ class FakeProvider:
             await asyncio.sleep(self.delay_seconds)
         if self.generate_error:
             raise self.generate_error
-        text = (
+        text = self.response_text or (
             "Tum theek ho?"
             if self.plain_text
             else (

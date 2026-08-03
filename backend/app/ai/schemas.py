@@ -16,10 +16,17 @@ class MemoryCandidate(BaseModel):
 
     content: str = Field(min_length=1, max_length=1000)
     memory_type: str = Field(default="candidate", min_length=1, max_length=80)
-    importance: int = Field(default=3, ge=1, le=5)
+    importance: int = Field(default=50, ge=0, le=100)
+    confidence: float | None = Field(default=None, ge=0, le=1)
     tags: list[Annotated[str, StringConstraints(min_length=1, max_length=80)]] = Field(
         default_factory=list, max_length=12
     )
+    entities: list[Annotated[str, StringConstraints(min_length=1, max_length=80)]] = (
+        Field(default_factory=list, max_length=12)
+    )
+    reason: str | None = Field(default=None, max_length=250)
+    is_sensitive: bool = False
+    permanence: Literal["temporary", "long_term", "permanent"] | None = None
 
 
 class StructuredRoleplayResponse(BaseModel):

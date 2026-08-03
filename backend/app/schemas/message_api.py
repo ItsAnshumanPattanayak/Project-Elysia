@@ -4,6 +4,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from app.ai.schemas import GenerationResult
+from app.memory.schemas import MemoryProcessingResult
 from app.relationship.schemas import RelationshipApplicationResult
 from app.schemas.conversation_api import ConversationSummaryResponse
 
@@ -96,6 +97,7 @@ class SendMessageResponse(BaseModel):
     character_message: MessageResponse
     generation: GenerationResult
     relationship: RelationshipApplicationResult | None = None
+    memory: MemoryProcessingResult | None = None
     warnings: list[str] = Field(default_factory=list)
 
 
@@ -104,4 +106,5 @@ class RegenerateResponse(BaseModel):
     generation: GenerationResult
     turn_count: int
     relationship: RelationshipApplicationResult | None = None
+    memory: MemoryProcessingResult | None = None
     warnings: list[str] = Field(default_factory=list)

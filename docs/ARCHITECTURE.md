@@ -14,6 +14,11 @@ ConversationService → ConversationContextBuilder
 
 Completed response → StructuredRoleplayProcessor → RelationshipEventResolver
     → RelationshipEngine → RelationshipService → state + audit history
+
+Completed exchange → MemoryExtractionService → MemoryApplicationService
+    → SQLite memory lifecycle
+
+ContextBuilder → bounded lexical MemoryRetrievalService → prompt recollections
 ```
 
 The React application still provides only the Batch 2/3 foundation status screen. It does not read SQLite, calculate authoritative state, or expose an unfinished chat UI.
@@ -34,9 +39,11 @@ An async lock registry is keyed by conversation ID. Contention waits only for th
 
 Optional `client_message_id` values are stored in user-message JSON metadata and checked under the lock. Completed duplicates return the prior stored generation result; an accepted request without a completed reply returns a deterministic conflict. Sequence uniqueness remains protected by the existing database constraint.
 
+Memory application follows relationship processing in its own short transaction. Failure becomes a non-fatal warning and cannot roll back completed messages or relationship changes. Retrieval occurs before provider invocation; usage is persisted only after successful character output.
+
 ## Deferred components
 
-- Memory extraction, relevance search, and recall
+- Semantic/vector memory retrieval and embeddings
 - Conversation summarization
 - Story branches and checkpoints
 - Distributed locks

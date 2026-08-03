@@ -37,7 +37,11 @@ All endpoints are local-development APIs under `/api/conversations`. Errors use 
 
 Clients cannot supply a system prompt, provider URL, file path, or sender. Overrides use the Batch 2 safe bounds. `client_message_id` is optional, bounded, safe-character validated, and unique by application policy within one conversation.
 
-Successful persistent generation responses include a compact relationship result. Relationship-processing failure is returned as a non-fatal warning because the completed chat transaction is not rolled back. Streaming includes relationship metadata in its final `metadata` event.
+Successful persistent generation responses include compact relationship and memory-processing results. Either post-processing stage may return a non-fatal warning because completed chat and the other successful stage are not rolled back. Streaming includes both results and warnings in its final `metadata` event.
+
+## Memory API
+
+`GET` and `POST /api/conversations/{id}/memories` list and manually create memories. `GET`, `PATCH` and `DELETE /api/conversations/{id}/memories/{memory_id}` provide detail, controlled manual edits and soft archival. List filters cover status, controlled type, source, pin, sensitivity and bounded text search. `POST .../search-preview` returns deterministic score diagnostics for development. `POST .../rebuild` requires `{"confirm":true}` and never calls AI.
 
 ## Pagination
 

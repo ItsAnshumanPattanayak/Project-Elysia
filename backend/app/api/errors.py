@@ -12,6 +12,7 @@ from app.character_engine.exceptions import (
     UnsafeCharacterPathError,
     UnsupportedCharacterSchemaVersionError,
 )
+from app.memory.exceptions import MemoryError
 from app.services.conversation_errors import ConversationError
 
 
@@ -93,4 +94,13 @@ async def conversation_error_handler(_: Request, exc: Exception) -> JSONResponse
     return JSONResponse(
         status_code=exc.status_code,
         content=error_payload(exc.code, exc.message, exc.retryable, exc.details),
+    )
+
+
+async def memory_error_handler(_: Request, exc: Exception) -> JSONResponse:
+    if not isinstance(exc, MemoryError):
+        raise exc
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=error_payload(exc.code, exc.message),
     )

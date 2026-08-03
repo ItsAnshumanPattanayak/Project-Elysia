@@ -164,7 +164,7 @@ class PromptMessage(BaseModel):
 class MemoryContext(BaseModel):
     content: str = Field(min_length=1, max_length=1000)
     memory_type: str = Field(min_length=1, max_length=80)
-    importance: int = Field(ge=1, le=5)
+    importance: int = Field(ge=0, le=100)
 
 
 class RelationshipValues(BaseModel):

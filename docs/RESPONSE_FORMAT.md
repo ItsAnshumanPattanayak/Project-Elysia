@@ -31,7 +31,9 @@ The future backend-normalized representation is:
 
 Batch 2 requests this JSON contract through local Ollama and validates it with Pydantic. Valid JSON receives `parse_status: structured`. Markdown-fenced JSON is accepted defensively. Noncompliant plain text receives `parse_status: plain_text_fallback`; visible `*narration*` and attributed dialogue are extracted where possible, while the raw text is preserved.
 
-Relationship-event strings remain model suggestions. Batch 4 canonicalizes them, resolves an authoritative event through deterministic evidence, and applies only centralized backend deltas. Memory candidates remain descriptive metadata and do not create memories. Persistent sends store validated narration, dialogue, emotion, raw text, parse diagnostics, and bounded generation metadata.
+Relationship-event strings remain model suggestions. Batch 4 canonicalizes them, resolves an authoritative event through deterministic evidence, and applies only centralized backend deltas. Batch 5 treats memory candidates as untrusted suggestions: controlled backend extraction requires user evidence, applies safety and quality thresholds, and may store, consolidate, supersede or reject them after a completed exchange. Persistent sends retain the validated structured response and compact processing metadata for audit and rebuild.
+
+Memory candidates support bounded `content`, controlled or safely normalized `memory_type`, 0–100 suggested `importance`, optional 0–1 `confidence`, bounded `tags` and `entities`, optional `reason`, `is_sensitive`, and permanence hint. These fields cannot bypass backend policy and plain-text fallback invents no candidates.
 
 Strict JSON, complete/embedded Markdown fences, and limited trailing-comma repair are supported. Unknown labels do not become canonical. Plain-text fallback preserves visible output while setting emotion/event to null. See `STRUCTURED_RESPONSE_PROCESSING.md`.
 

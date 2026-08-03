@@ -14,6 +14,8 @@ from app.character_engine.exceptions import (
 )
 from app.core.config import Settings
 from app.db.base import utc_now
+from app.memory.schemas import MemoryProcessingResult
+from app.memory.service import MemoryApplicationService, MemoryLifecycleService
 from app.models import Conversation, Message, MessageSender, RelationshipState
 from app.relationship.schemas import (
     ManualRelationshipUpdate,
@@ -22,6 +24,7 @@ from app.relationship.schemas import (
     RelationshipStateResponse,
 )
 from app.repositories.conversations import ConversationRepository
+from app.repositories.memories import MemoryRepository
 from app.repositories.messages import MessageRepository
 from app.schemas.conversation_api import (
     CharacterReference,
@@ -80,6 +83,39 @@ class ConversationService:
         self.messages = MessageRepository(session)
         self.context_builder = ConversationContextBuilder(session, settings)
         self.relationships = RelationshipService(session)
+        self.memory_application = MemoryApplicationService(session, settings)
+        self.memory_lifecycle = MemoryLifecycleService(session, settings)
+        self.memory_repository = MemoryRepository(session)
+
+    def _record_memory_usage(self, character: Message) -> None:
+        selected = self.context_builder.last_selected_memory_ids
+        character.message_metadata = {
+            **character.message_metadata,
+            "selected_memory_ids": selected,
+        }
+        if selected:
+            self.memory_repository.record_usage(selected, utc_now())
+
+    def _apply_memory(
+        self,
+        conversation: Conversation,
+        user: Message,
+        character: Message,
+        result: GenerationResult,
+    ) -> MemoryProcessingResult:
+        processing = self.memory_application.apply_exchange(
+            conversation,
+            user,
+            character,
+            result.parsed_response,
+            commit=False,
+        )
+        character.message_metadata = {
+            **character.message_metadata,
+            "memory_processing": processing.model_dump(mode="json"),
+        }
+        self.session.commit()
+        return processing
 
     def _get(self, conversation_id: int) -> Conversation:
         conversation = self.conversations.get(conversation_id)
@@ -366,6 +402,7 @@ class ConversationService:
             character = self._character_message(
                 conversation.id, user.sequence_number + 1, result
             )
+            self._record_memory_usage(character)
             self.messages.add(character)
             conversation.updated_at = utc_now()
             try:
@@ -378,6 +415,7 @@ class ConversationService:
                 ) from exc
             warnings: list[str] = []
             relationship: RelationshipApplicationResult | None = None
+            memory: MemoryProcessingResult | None = None
             try:
                 relationship = self.relationships.apply_exchange(
                     conversation, user, character, result.parsed_response
@@ -388,12 +426,21 @@ class ConversationService:
                     "The exchange was saved, but relationship processing failed and "
                     "can be recalculated."
                 )
+            try:
+                memory = self._apply_memory(conversation, user, character, result)
+            except Exception:
+                self.session.rollback()
+                warnings.append(
+                    "The exchange was saved, but memory processing failed and can "
+                    "be rebuilt."
+                )
             return SendMessageResponse(
                 conversation=self._summary(conversation),
                 user_message=MessageResponse.model_validate(user),
                 character_message=MessageResponse.model_validate(character),
                 generation=result,
                 relationship=relationship,
+                memory=memory,
                 warnings=warnings,
             )
 
@@ -486,6 +533,7 @@ class ConversationService:
                         character = self._character_message(
                             conversation.id, user.sequence_number + 1, result
                         )
+                        self._record_memory_usage(character)
                         self.messages.add(character)
                         conversation.updated_at = utc_now()
                         try:
@@ -511,6 +559,18 @@ class ConversationService:
                                 "The exchange was saved, but relationship processing "
                                 "failed and can be recalculated."
                             )
+                        memory = None
+                        memory_warning = None
+                        try:
+                            memory = self._apply_memory(
+                                conversation, user, character, result
+                            )
+                        except Exception:
+                            self.session.rollback()
+                            memory_warning = (
+                                "The exchange was saved, but memory processing failed "
+                                "and can be rebuilt."
+                            )
                         yield StreamEvent(
                             event="metadata",
                             data={
@@ -523,7 +583,17 @@ class ConversationService:
                                     if relationship
                                     else None
                                 ),
-                                "warning": relationship_warning,
+                                "memory": (
+                                    memory.model_dump(mode="json") if memory else None
+                                ),
+                                "warnings": [
+                                    warning
+                                    for warning in (
+                                        relationship_warning,
+                                        memory_warning,
+                                    )
+                                    if warning
+                                ],
                                 **provider_metadata,
                             },
                         )
@@ -562,6 +632,7 @@ class ConversationService:
                 character = self._character_message(
                     conversation.id, latest.sequence_number + 1, result
                 )
+                self._record_memory_usage(character)
                 self.messages.add(character)
                 conversation.updated_at = utc_now()
                 try:
@@ -574,6 +645,7 @@ class ConversationService:
                     ) from exc
                 warnings: list[str] = []
                 relationship = None
+                memory = None
                 try:
                     relationship = self.relationships.apply_exchange(
                         conversation, latest, character, result.parsed_response
@@ -583,11 +655,19 @@ class ConversationService:
                     warnings.append(
                         "The response was saved, but relationship processing failed."
                     )
+                try:
+                    memory = self._apply_memory(conversation, latest, character, result)
+                except Exception:
+                    self.session.rollback()
+                    warnings.append(
+                        "The response was saved, but memory processing failed."
+                    )
                 return RegenerateResponse(
                     character_message=MessageResponse.model_validate(character),
                     generation=result,
                     turn_count=turn_count,
                     relationship=relationship,
+                    memory=memory,
                     warnings=warnings,
                 )
             character = latest
@@ -606,6 +686,11 @@ class ConversationService:
                 conversation, payload, exclude_sequence=character.sequence_number
             )
             result = await self.ai.generate(request)
+            self.memory_lifecycle.invalidate_for_messages(
+                conversation.id,
+                [character.id],
+                preserve_deterministic_user_ids={user.id},
+            )
             replacement = self._character_message(
                 conversation.id,
                 character.sequence_number,
@@ -622,12 +707,14 @@ class ConversationService:
             character.dialogue = replacement.dialogue
             character.emotion = replacement.emotion
             character.message_metadata = replacement.message_metadata
+            self._record_memory_usage(character)
             character.is_edited = True
             character.edited_at = utc_now()
             conversation.updated_at = utc_now()
             self.session.commit()
             warnings = []
             relationship = None
+            memory = None
             try:
                 relationship = self.relationships.supersede_and_apply(
                     conversation, user, character, result.parsed_response
@@ -638,6 +725,13 @@ class ConversationService:
                     "The regenerated response was saved, but relationship processing "
                     "failed. The previous audit event remains recoverable."
                 )
+            try:
+                memory = self._apply_memory(conversation, user, character, result)
+            except Exception:
+                self.session.rollback()
+                warnings.append(
+                    "The regenerated response was saved, but memory processing failed."
+                )
             return RegenerateResponse(
                 character_message=MessageResponse.model_validate(character),
                 generation=result,
@@ -645,6 +739,7 @@ class ConversationService:
                     conversation
                 ).turn_count,
                 relationship=relationship,
+                memory=memory,
                 warnings=warnings,
             )
 
@@ -683,9 +778,13 @@ class ConversationService:
                 [item.id for item in removed],
                 recalculate=False,
             )
+            self.memory_lifecycle.invalidate_for_messages(
+                conversation_id, [message.id, *(item.id for item in removed)]
+            )
             self.messages.delete_from(conversation_id, message.sequence_number + 1)
         else:
             removed = []
+            self.memory_lifecycle.invalidate_for_messages(conversation_id, [message.id])
         message.raw_content = payload.content
         message.is_edited = True
         message.edited_at = utc_now()
@@ -731,6 +830,9 @@ class ConversationService:
             conversation,
             [item.id for item in removed],
             recalculate=False,
+        )
+        self.memory_lifecycle.invalidate_for_messages(
+            conversation_id, [item.id for item in removed]
         )
         self.messages.delete_from(conversation_id, message.sequence_number)
         conversation.updated_at = utc_now()

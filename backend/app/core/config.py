@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "Project Elysia"
-    app_version: str = "0.4.0"
+    app_version: str = "0.5.0"
     environment: str = "development"
     debug: bool = True
     api_host: str = "127.0.0.1"
@@ -46,6 +46,24 @@ class Settings(BaseSettings):
     message_max_content_length: int = Field(default=10000, ge=1, le=20000)
     conversation_lock_timeout_seconds: float = Field(default=1, gt=0, le=30)
     stream_max_accumulated_characters: int = Field(default=50000, ge=1000, le=200000)
+    memory_engine_enabled: bool = True
+    memory_auto_extraction_enabled: bool = True
+    memory_deterministic_fact_extraction_enabled: bool = True
+    memory_default_list_limit: int = Field(default=50, ge=1, le=200)
+    memory_max_list_limit: int = Field(default=200, ge=1, le=500)
+    memory_max_content_length: int = Field(default=1000, ge=50, le=5000)
+    memory_max_tags: int = Field(default=10, ge=0, le=30)
+    memory_max_tag_length: int = Field(default=50, ge=1, le=100)
+    memory_min_importance_to_store: int = Field(default=20, ge=0, le=100)
+    memory_min_confidence_to_store: float = Field(default=0.55, ge=0, le=1)
+    memory_retrieval_limit: int = Field(default=8, ge=1, le=30)
+    memory_retrieval_max_characters: int = Field(default=4000, ge=100, le=20000)
+    memory_min_relevance_score: float = Field(default=0.20, ge=0, le=1)
+    memory_pinned_bonus: float = Field(default=0.20, ge=0, le=1)
+    memory_recency_half_life_days: int = Field(default=90, ge=1, le=3650)
+    memory_max_candidates_per_exchange: int = Field(default=5, ge=1, le=20)
+    memory_search_query_max_length: int = Field(default=2000, ge=1, le=10000)
+    memory_enable_sensitive_auto_store: bool = False
 
     @field_validator("log_level")
     @classmethod

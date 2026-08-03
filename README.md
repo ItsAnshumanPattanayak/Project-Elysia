@@ -1,8 +1,8 @@
 # Project Elysia
 
-**Status: Batch 4 — deterministic relationship and response processing**
+**Status: Batch 5 — local long-term memory system**
 
-Project Elysia is a private, local-first AI character roleplay application. The backend supports persistent conversation workflows plus deterministic relationship events, bounded score changes, mood/stage resolution, audit history, replay after history truncation, manual locks/overrides, and robust structured-response processing. The finished chat frontend, memory extraction/retrieval, and automatic summaries remain deferred.
+Project Elysia is a private, local-first AI character roleplay application. The backend now includes conservative memory extraction, auditable SQLite persistence, deterministic lexical retrieval, prompt recall, lifecycle recovery, and manual memory controls alongside the existing conversation and relationship systems. The finished chat frontend, memory dashboard, semantic/vector retrieval, and automatic summaries remain deferred.
 
 There are no accounts, payments, subscriptions, telemetry, paid APIs, automatic model downloads, or cloud AI fallbacks.
 
@@ -50,6 +50,10 @@ Open `http://localhost:5173`; API docs are at `http://127.0.0.1:8000/docs`. Setu
 - `GET /api/conversations/{id}/relationship`
 - `GET /api/conversations/{id}/relationship/events`
 - `PATCH /api/conversations/{id}/relationship`
+- `GET|POST /api/conversations/{id}/memories`
+- `GET|PATCH|DELETE /api/conversations/{id}/memories/{memory_id}`
+- `POST /api/conversations/{id}/memories/search-preview`
+- `POST /api/conversations/{id}/memories/rebuild`
 
 Batch 2 character, prompt-preview, AI status/model, and stateless development-generation endpoints remain available.
 
@@ -125,8 +129,14 @@ Numeric relationship changes come only from centralized backend rules. Model eve
 
 Strict JSON, Markdown-fenced JSON, limited trailing-comma repair, canonical normalization, and plain-text fallback are supported with safe parser diagnostics. Fallback never invents emotion or relationship events. See [relationship engine](docs/RELATIONSHIP_ENGINE.md) and [structured response processing](docs/STRUCTURED_RESPONSE_PROCESSING.md).
 
+## Long-term memory
+
+Completed exchanges can yield memories from bounded structured candidates and conservative explicit-user-statement patterns. The backend—not the model—validates type, evidence, safety, importance, confidence, duplication, and conflicts. Active memories are ranked with local token and tag overlap, importance, confidence, gentle recency, and a bounded pin bonus. No embedding model, vector database, cloud API, or extra AI call is used.
+
+See [memory system](docs/MEMORY_SYSTEM.md) and [retrieval design](docs/MEMORY_RETRIEVAL.md).
+
 ## Current boundaries
 
-Memories and summaries are not automatically created. Model-proposed memory candidates stay only in character-message generation metadata. Relationship scoring is conservative and inspectable, not a claim of perfect sentiment understanding. The frontend remains a system foundation screen and intentionally has no production-looking chat page yet.
+Memory extraction is deliberately narrow and lexical retrieval is not semantic understanding. Summaries are not automatically created. Relationship scoring remains conservative and inspectable. The frontend remains a system foundation screen and intentionally exposes no unfinished memory dashboard.
 
 See [conversation API](docs/CONVERSATION_API.md), [lifecycle](docs/CONVERSATION_LIFECYCLE.md), [architecture](docs/ARCHITECTURE.md), [data model](docs/DATA_MODEL.md), and [safety](docs/SAFETY_AND_PRIVACY.md).

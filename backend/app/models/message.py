@@ -57,6 +57,11 @@ class Message(Base):
     edited_at: Mapped[datetime | None]
 
     conversation: Mapped["Conversation"] = relationship(back_populates="messages")
-    sourced_memories: Mapped[list["Memory"]] = relationship(
-        back_populates="source_message"
+    user_sourced_memories: Mapped[list["Memory"]] = relationship(
+        foreign_keys="Memory.source_user_message_id",
+        back_populates="source_user_message",
+    )
+    character_sourced_memories: Mapped[list["Memory"]] = relationship(
+        foreign_keys="Memory.source_character_message_id",
+        back_populates="source_character_message",
     )
