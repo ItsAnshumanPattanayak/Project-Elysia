@@ -68,6 +68,10 @@ class PromptBuilder:
             f"Established history:\n{_items(relationship.established_history)}\n"
             f"Boundaries:\n{_items(relationship.boundaries)}"
         )
+        if context.current_mood:
+            relationship_text += (
+                "\nCurrent deterministic mood (read-only): " f"{context.current_mood}"
+            )
         if relationship_values:
             relationship_text += (
                 "\nRead-only relationship values (do not calculate or change): "

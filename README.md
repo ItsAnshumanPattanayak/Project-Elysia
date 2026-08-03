@@ -1,8 +1,8 @@
 # Project Elysia
 
-**Status: Batch 3 — persistent core conversation backend**
+**Status: Batch 4 — deterministic relationship and response processing**
 
-Project Elysia is a private, local-first AI character roleplay application. The backend now supports conversation CRUD, bounded message history, persistent non-stream and SSE exchanges, retry-safe client IDs, response regeneration, explicit history truncation for edits/deletes, turn counting, and per-conversation generation locks. The finished chat frontend, relationship calculations, memory extraction/retrieval, and automatic summaries remain deferred.
+Project Elysia is a private, local-first AI character roleplay application. The backend supports persistent conversation workflows plus deterministic relationship events, bounded score changes, mood/stage resolution, audit history, replay after history truncation, manual locks/overrides, and robust structured-response processing. The finished chat frontend, memory extraction/retrieval, and automatic summaries remain deferred.
 
 There are no accounts, payments, subscriptions, telemetry, paid APIs, automatic model downloads, or cloud AI fallbacks.
 
@@ -47,6 +47,9 @@ Open `http://localhost:5173`; API docs are at `http://127.0.0.1:8000/docs`. Setu
 - `POST /api/conversations/{id}/messages/regenerate`
 - `PATCH /api/conversations/{id}/messages/{message_id}`
 - `DELETE /api/conversations/{id}/messages/{message_id}`
+- `GET /api/conversations/{id}/relationship`
+- `GET /api/conversations/{id}/relationship/events`
+- `PATCH /api/conversations/{id}/relationship`
 
 Batch 2 character, prompt-preview, AI status/model, and stateless development-generation endpoints remain available.
 
@@ -116,8 +119,14 @@ npm.cmd audit
 
 Automated tests use isolated in-memory SQLite and fake/mocked AI providers. They do not require real Ollama or mutate `backend/data/elysia.db`.
 
+## Relationship and response processing
+
+Numeric relationship changes come only from centralized backend rules. Model event strings are suggestions, not score instructions. Completed exchanges receive a unique audit event; failures and partial streams receive none. Regeneration supersedes the earlier event, and edit/delete truncation replays remaining active history from a stored baseline. Locked values suppress automatic changes.
+
+Strict JSON, Markdown-fenced JSON, limited trailing-comma repair, canonical normalization, and plain-text fallback are supported with safe parser diagnostics. Fallback never invents emotion or relationship events. See [relationship engine](docs/RELATIONSHIP_ENGINE.md) and [structured response processing](docs/STRUCTURED_RESPONSE_PROCESSING.md).
+
 ## Current boundaries
 
-Relationship scores, mood, stage progression, memories, and summaries are not automatically calculated. Model-proposed relationship events and memory candidates are stored only inside character-message generation metadata; they do not become authoritative state. The frontend remains a system foundation screen and intentionally has no production-looking chat page yet.
+Memories and summaries are not automatically created. Model-proposed memory candidates stay only in character-message generation metadata. Relationship scoring is conservative and inspectable, not a claim of perfect sentiment understanding. The frontend remains a system foundation screen and intentionally has no production-looking chat page yet.
 
 See [conversation API](docs/CONVERSATION_API.md), [lifecycle](docs/CONVERSATION_LIFECYCLE.md), [architecture](docs/ARCHITECTURE.md), [data model](docs/DATA_MODEL.md), and [safety](docs/SAFETY_AND_PRIVACY.md).

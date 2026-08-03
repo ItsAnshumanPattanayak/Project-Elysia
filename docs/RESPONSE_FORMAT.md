@@ -31,6 +31,8 @@ The future backend-normalized representation is:
 
 Batch 2 requests this JSON contract through local Ollama and validates it with Pydantic. Valid JSON receives `parse_status: structured`. Markdown-fenced JSON is accepted defensively. Noncompliant plain text receives `parse_status: plain_text_fallback`; visible `*narration*` and attributed dialogue are extracted where possible, while the raw text is preserved.
 
-Relationship events and memory candidates remain descriptive model output only; Batch 3 does not apply scores or create memories from them. Persistent sends store validated narration, dialogue, emotion, raw text, parse status, and bounded generation metadata. A turn increments only when one completed character message is persisted.
+Relationship-event strings remain model suggestions. Batch 4 canonicalizes them, resolves an authoritative event through deterministic evidence, and applies only centralized backend deltas. Memory candidates remain descriptive metadata and do not create memories. Persistent sends store validated narration, dialogue, emotion, raw text, parse diagnostics, and bounded generation metadata.
+
+Strict JSON, complete/embedded Markdown fences, and limited trailing-comma repair are supported. Unknown labels do not become canonical. Plain-text fallback preserves visible output while setting emotion/event to null. See `STRUCTURED_RESPONSE_PROCESSING.md`.
 
 Conversation streaming wraps provider events with persistence lifecycle events: `accepted`, `user_message`, `start`, ordered `token`, `metadata`, and `completed`. A terminal `error` or `cancelled` never persists partial character text. The older `/api/ai/generate/stream` development endpoint retains its Batch 2 stateless event contract.

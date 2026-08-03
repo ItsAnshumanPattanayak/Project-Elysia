@@ -7,6 +7,7 @@
 - **Conversation:** character/profile association plus title, scene, summary, relationship-stage text, and lifecycle flags.
 - **Message:** ordered `user`, `character`, or internal `system` record. `(conversation_id, sequence_number)` is unique. JSON metadata stores bounded generation metadata, optional client ID, parse status, and regeneration count.
 - **RelationshipState:** one state per conversation with seven bounded scores, mood, stage, and `turn_count`.
+- **RelationshipEvent:** immutable audit record for one automatic/manual application, including source messages, evidence, deltas, snapshots, transitions, unique key, and reversion state.
 - **Memory:** conversation-scoped future memory data with an optional source message.
 - **ApplicationSetting:** local JSON configuration, not a secret store.
 
@@ -16,6 +17,7 @@ Character 1 ── * Conversation * ── 1 RoleplayProfile
                        ├── * Message
                        ├── * Memory
                        └── 0..1 RelationshipState
+                       └── * RelationshipEvent
 ```
 
 ## Batch 3 invariants
@@ -33,4 +35,4 @@ Character 1 ── * Conversation * ── 1 RoleplayProfile
 
 Explicit conversation deletion uses existing ORM delete-orphan ownership for its messages, memories, and relationship state. Character and roleplay-profile rows remain intact. Deleting a source message leaves any retained memory source nullable through the existing foreign-key behavior. Archived conversations are readable and remain stored.
 
-No schema migration was needed for Batch 3. Persisted JSON metadata supports the optional client ID and generation audit fields without speculative columns; this means client-ID uniqueness is application-enforced within the local single-process workflow rather than a dedicated database constraint.
+Batch 4 migration `20260803_0002` adds `relationship_events` and `relationship_states.baseline_values`. Existing states are backfilled from their pre-migration values. Source-message foreign keys use `SET NULL`, retaining audit records after message deletion; conversation ownership still cascades the history when the conversation itself is explicitly deleted. Confidence is constrained to 0–1 and application keys are unique.

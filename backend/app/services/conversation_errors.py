@@ -87,3 +87,14 @@ class StreamOutputLimitError(ConversationError):
 class InvalidPaginationError(ConversationError):
     code = "invalid_pagination"
     status_code = 422
+
+
+class RelationshipProcessingError(ConversationError):
+    code = "relationship_processing_failed"
+    status_code = 500
+    retryable = True
+
+
+class RelationshipValueLockedError(ConversationError):
+    code = "relationship_value_locked"
+    status_code = 409

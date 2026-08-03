@@ -46,7 +46,7 @@ function renderApp(path = '/') {
   )
 }
 
-describe('Project Elysia Batch 3 foundation', () => {
+describe('Project Elysia Batch 4 foundation', () => {
   beforeEach(() => vi.restoreAllMocks())
 
   it('renders the title and loading state', () => {

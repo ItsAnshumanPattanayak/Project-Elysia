@@ -179,15 +179,6 @@ def test_non_stream_send_persists_exchange_and_context(
     conversation_id = seed_id(db_session)
     state = db_session.scalar(select(RelationshipState))
     assert state is not None
-    score_snapshot = (
-        state.attraction,
-        state.trust,
-        state.affection,
-        state.respect,
-        state.comfort,
-        state.jealousy,
-        state.anger,
-    )
     response = client.post(
         f"/api/conversations/{conversation_id}/messages",
         json={
@@ -212,19 +203,24 @@ def test_non_stream_send_persists_exchange_and_context(
     assert "Anshuman" in system_prompt
     assert "Ready for a future roleplay scene" in system_prompt
     assert "trust=75" in system_prompt
+    assert "Current deterministic mood (read-only): affectionate" in system_prompt
     db_session.expire_all()
     state = db_session.scalar(select(RelationshipState))
     conversation = db_session.get(Conversation, conversation_id)
     assert state is not None and state.turn_count == 1
     assert conversation is not None and conversation.summary == ""
-    assert score_snapshot == (
-        state.attraction,
-        state.trust,
-        state.affection,
-        state.respect,
-        state.comfort,
-        state.jealousy,
-        state.anger,
+    assert data["relationship"]["event_type"] == "supportive"
+    assert data["relationship"]["score_deltas"] == {
+        "trust": 2,
+        "affection": 1,
+        "comfort": 2,
+    }
+    assert (state.trust, state.affection, state.comfort) == (77, 73, 72)
+    assert (state.attraction, state.respect, state.jealousy, state.anger) == (
+        70,
+        80,
+        20,
+        0,
     )
     assert db_session.scalar(select(func.count()).select_from(Memory)) == 0
 

@@ -93,6 +93,17 @@ def seed_database(session: Session) -> dict[str, int]:
                 mood="affectionate",
                 relationship_stage="committed",
                 turn_count=0,
+                baseline_values={
+                    "attraction": 70,
+                    "trust": 75,
+                    "affection": 72,
+                    "respect": 80,
+                    "comfort": 70,
+                    "jealousy": 20,
+                    "anger": 0,
+                    "mood": "affectionate",
+                    "relationship_stage": "committed",
+                },
             )
         )
 

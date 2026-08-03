@@ -8,7 +8,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <span className="mark">E</span>
           <span>Project Elysia</span>
         </a>
-        <span className="batch">Conversation backend · Batch 3</span>
+        <span className="batch">Relationship engine · Batch 4</span>
       </header>
       {children}
       <footer>

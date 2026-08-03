@@ -63,6 +63,18 @@ class MessageRepository:
             .limit(1)
         )
 
+    def from_sequence(self, conversation_id: int, sequence: int) -> list[Message]:
+        return list(
+            self.session.scalars(
+                select(Message)
+                .where(
+                    Message.conversation_id == conversation_id,
+                    Message.sequence_number >= sequence,
+                )
+                .order_by(Message.sequence_number)
+            )
+        )
+
     def by_sequence(self, conversation_id: int, sequence: int) -> Message | None:
         return self.session.scalar(
             select(Message).where(

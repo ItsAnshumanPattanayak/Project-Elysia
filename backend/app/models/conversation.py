@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from app.models.character import Character
     from app.models.memory import Memory
     from app.models.message import Message
+    from app.models.relationship_event import RelationshipEvent
     from app.models.relationship_state import RelationshipState
     from app.models.roleplay_profile import RoleplayProfile
 
@@ -39,5 +40,8 @@ class Conversation(TimestampMixin, Base):
         back_populates="conversation", cascade="all, delete-orphan", uselist=False
     )
     memories: Mapped[list["Memory"]] = relationship(
+        back_populates="conversation", cascade="all, delete-orphan"
+    )
+    relationship_events: Mapped[list["RelationshipEvent"]] = relationship(
         back_populates="conversation", cascade="all, delete-orphan"
     )

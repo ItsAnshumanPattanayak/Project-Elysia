@@ -6,7 +6,7 @@ def test_root_returns_metadata(client: TestClient) -> None:
     assert response.status_code == 200
     assert response.json() == {
         "name": "Project Elysia API",
-        "version": "0.3.0",
+        "version": "0.4.0",
         "status": "running",
     }
 

@@ -46,6 +46,7 @@ class RelationshipState(TimestampMixin, Base):
     relationship_stage: Mapped[str] = mapped_column(String(100), default="committed")
     turn_count: Mapped[int] = mapped_column(Integer, default=0)
     locked_values: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    baseline_values: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
 
     conversation: Mapped["Conversation"] = relationship(
         back_populates="relationship_state"

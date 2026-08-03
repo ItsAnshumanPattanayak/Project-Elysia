@@ -183,6 +183,7 @@ class PromptContext(BaseModel):
     conversation_id: int | None = Field(default=None, ge=1)
     current_scene: str | None = Field(default=None, max_length=2000)
     relationship_stage: str | None = Field(default=None, max_length=100)
+    current_mood: str | None = Field(default=None, max_length=100)
     relationship_values: RelationshipValues | None = None
     recent_messages: list[PromptMessage] = Field(default_factory=list, max_length=30)
     relevant_memories: list[MemoryContext] = Field(default_factory=list, max_length=10)

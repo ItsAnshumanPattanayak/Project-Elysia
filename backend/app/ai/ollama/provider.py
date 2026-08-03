@@ -11,7 +11,7 @@ from app.ai.exceptions import (
     OllamaModelNotInstalledError,
 )
 from app.ai.ollama.client import OllamaClient
-from app.ai.parser import parse_roleplay_response
+from app.ai.parser import process_roleplay_response
 from app.ai.schemas import (
     AIModelDetails,
     AIModelInfo,
@@ -216,7 +216,7 @@ class OllamaProvider:
         await self._ensure_model(selected)
         raw = await self.client.chat(self._payload(prompt, selected, False))
         text = raw["message"]["content"]
-        parsed, parse_status = parse_roleplay_response(text)
+        processed = process_roleplay_response(text)
         metadata = {
             key: raw[key]
             for key in (
@@ -231,8 +231,9 @@ class OllamaProvider:
             provider="ollama",
             model=selected,
             text=text,
-            parsed_response=parsed,
-            parse_status=parse_status,
+            parsed_response=processed.response,
+            parse_status=processed.parse_status,
+            parser_diagnostics=processed.diagnostics,
             done=bool(raw.get("done", True)),
             finish_reason=raw.get("done_reason"),
             metadata=metadata,
@@ -261,7 +262,7 @@ class OllamaProvider:
                 "Ollama returned an empty generation stream."
             )
         text = "".join(combined)
-        parsed, parse_status = parse_roleplay_response(text)
+        processed = process_roleplay_response(text)
         metadata = {
             key: final[key]
             for key in (
@@ -274,13 +275,19 @@ class OllamaProvider:
             if key in final
         }
         yield StreamEvent(
-            event="metadata", data={"parse_status": parse_status, **metadata}
+            event="metadata",
+            data={
+                "parse_status": processed.parse_status,
+                "parser_diagnostics": processed.diagnostics.model_dump(mode="json"),
+                **metadata,
+            },
         )
         yield StreamEvent(
             event="completed",
             data={
                 "text": text,
-                "parsed_response": parsed.model_dump(mode="json"),
-                "parse_status": parse_status,
+                "parsed_response": processed.response.model_dump(mode="json"),
+                "parse_status": processed.parse_status,
+                "parser_diagnostics": processed.diagnostics.model_dump(mode="json"),
             },
         )

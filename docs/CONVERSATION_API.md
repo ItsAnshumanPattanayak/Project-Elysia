@@ -18,6 +18,9 @@ All endpoints are local-development APIs under `/api/conversations`. Errors use 
 - `POST /api/conversations/{id}/messages/regenerate` replaces the latest character response after successful generation. If the latest message is an unanswered user message, it completes that exchange instead.
 - `PATCH /api/conversations/{id}/messages/{message_id}` edits user messages only. Earlier edits require `confirm_truncate_following_messages` in the JSON body.
 - `DELETE /api/conversations/{id}/messages/{message_id}` deletes the selected message and, when required and confirmed by the same-named query parameter, all following messages.
+- `GET /api/conversations/{id}/relationship` returns bounded scores, deterministic mood/stage, turn count, locks, and replay baseline.
+- `GET /api/conversations/{id}/relationship/events` returns paginated audit history, including reverted events.
+- `PATCH /api/conversations/{id}/relationship` performs an auditable manual update with a required reason. Locked values require explicit `force: true`.
 
 ## Send request
 
@@ -33,6 +36,8 @@ All endpoints are local-development APIs under `/api/conversations`. Errors use 
 ```
 
 Clients cannot supply a system prompt, provider URL, file path, or sender. Overrides use the Batch 2 safe bounds. `client_message_id` is optional, bounded, safe-character validated, and unique by application policy within one conversation.
+
+Successful persistent generation responses include a compact relationship result. Relationship-processing failure is returned as a non-fatal warning because the completed chat transaction is not rolled back. Streaming includes relationship metadata in its final `metadata` event.
 
 ## Pagination
 

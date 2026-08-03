@@ -6,7 +6,7 @@ from typing import Any
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.ai.parser import parse_roleplay_response
+from app.ai.parser import process_roleplay_response
 from app.ai.schemas import GenerationRequest, GenerationResult, StreamEvent
 from app.character_engine.exceptions import (
     CharacterNotFoundError,
@@ -15,6 +15,12 @@ from app.character_engine.exceptions import (
 from app.core.config import Settings
 from app.db.base import utc_now
 from app.models import Conversation, Message, MessageSender, RelationshipState
+from app.relationship.schemas import (
+    ManualRelationshipUpdate,
+    RelationshipApplicationResult,
+    RelationshipEventListResponse,
+    RelationshipStateResponse,
+)
 from app.repositories.conversations import ConversationRepository
 from app.repositories.messages import MessageRepository
 from app.schemas.conversation_api import (
@@ -55,6 +61,7 @@ from app.services.conversation_errors import (
     StreamOutputLimitError,
 )
 from app.services.conversation_lock_service import ConversationLockService
+from app.services.relationship_service import RelationshipService
 
 
 class ConversationService:
@@ -72,6 +79,7 @@ class ConversationService:
         self.conversations = ConversationRepository(session)
         self.messages = MessageRepository(session)
         self.context_builder = ConversationContextBuilder(session, settings)
+        self.relationships = RelationshipService(session)
 
     def _get(self, conversation_id: int) -> Conversation:
         conversation = self.conversations.get(conversation_id)
@@ -154,7 +162,18 @@ class ConversationService:
             relationship_stage=payload.relationship_stage,
         )
         conversation.relationship_state = RelationshipState(
-            relationship_stage=payload.relationship_stage
+            relationship_stage=payload.relationship_stage,
+            baseline_values={
+                "attraction": 50,
+                "trust": 50,
+                "affection": 50,
+                "respect": 50,
+                "comfort": 50,
+                "jealousy": 0,
+                "anger": 0,
+                "mood": "neutral",
+                "relationship_stage": payload.relationship_stage,
+            },
         )
         self.conversations.add(conversation)
         self.session.commit()
@@ -357,11 +376,25 @@ class ConversationService:
                 raise ResponsePersistenceError(
                     "The generated response could not be persisted."
                 ) from exc
+            warnings: list[str] = []
+            relationship: RelationshipApplicationResult | None = None
+            try:
+                relationship = self.relationships.apply_exchange(
+                    conversation, user, character, result.parsed_response
+                )
+            except Exception:
+                self.session.rollback()
+                warnings.append(
+                    "The exchange was saved, but relationship processing failed and "
+                    "can be recalculated."
+                )
             return SendMessageResponse(
                 conversation=self._summary(conversation),
                 user_message=MessageResponse.model_validate(user),
                 character_message=MessageResponse.model_validate(character),
                 generation=result,
+                relationship=relationship,
+                warnings=warnings,
             )
 
     async def stream_send(
@@ -434,13 +467,14 @@ class ConversationService:
                         provider_metadata.update(event.data)
                     elif event.event == "completed":
                         text = str(event.data.get("text", "")) or "".join(chunks)
-                        parsed, parse_status = parse_roleplay_response(text)
+                        processed = process_roleplay_response(text)
                         result = GenerationResult(
                             provider=provider,
                             model=model,
                             text=text,
-                            parsed_response=parsed,
-                            parse_status=parse_status,
+                            parsed_response=processed.response,
+                            parse_status=processed.parse_status,
+                            parser_diagnostics=processed.diagnostics,
                             done=True,
                             finish_reason=(
                                 str(provider_metadata["done_reason"])
@@ -462,9 +496,36 @@ class ConversationService:
                             raise ResponsePersistenceError(
                                 "The streamed response could not be persisted."
                             ) from exc
+                        relationship = None
+                        relationship_warning = None
+                        try:
+                            relationship = self.relationships.apply_exchange(
+                                conversation,
+                                user,
+                                character,
+                                result.parsed_response,
+                            )
+                        except Exception:
+                            self.session.rollback()
+                            relationship_warning = (
+                                "The exchange was saved, but relationship processing "
+                                "failed and can be recalculated."
+                            )
                         yield StreamEvent(
                             event="metadata",
-                            data={"parse_status": parse_status, **provider_metadata},
+                            data={
+                                "parse_status": processed.parse_status,
+                                "parser_diagnostics": processed.diagnostics.model_dump(
+                                    mode="json"
+                                ),
+                                "relationship": (
+                                    relationship.model_dump(mode="json")
+                                    if relationship
+                                    else None
+                                ),
+                                "warning": relationship_warning,
+                                **provider_metadata,
+                            },
                         )
                         yield StreamEvent(
                             event="completed",
@@ -511,10 +572,23 @@ class ConversationService:
                     raise ResponsePersistenceError(
                         "The regenerated response could not be persisted."
                     ) from exc
+                warnings: list[str] = []
+                relationship = None
+                try:
+                    relationship = self.relationships.apply_exchange(
+                        conversation, latest, character, result.parsed_response
+                    )
+                except Exception:
+                    self.session.rollback()
+                    warnings.append(
+                        "The response was saved, but relationship processing failed."
+                    )
                 return RegenerateResponse(
                     character_message=MessageResponse.model_validate(character),
                     generation=result,
                     turn_count=turn_count,
+                    relationship=relationship,
+                    warnings=warnings,
                 )
             character = latest
             if character.sender != MessageSender.CHARACTER:
@@ -552,12 +626,26 @@ class ConversationService:
             character.edited_at = utc_now()
             conversation.updated_at = utc_now()
             self.session.commit()
+            warnings = []
+            relationship = None
+            try:
+                relationship = self.relationships.supersede_and_apply(
+                    conversation, user, character, result.parsed_response
+                )
+            except Exception:
+                self.session.rollback()
+                warnings.append(
+                    "The regenerated response was saved, but relationship processing "
+                    "failed. The previous audit event remains recoverable."
+                )
             return RegenerateResponse(
                 character_message=MessageResponse.model_validate(character),
                 generation=result,
                 turn_count=self.conversations.ensure_relationship(
                     conversation
                 ).turn_count,
+                relationship=relationship,
+                warnings=warnings,
             )
 
     def edit_message(
@@ -587,7 +675,17 @@ class ConversationService:
                 "Editing this message requires truncating all later messages."
             )
         if latest is not None and latest.sequence_number > message.sequence_number:
+            removed = self.messages.from_sequence(
+                conversation_id, message.sequence_number + 1
+            )
+            self.relationships.revert_for_messages(
+                conversation,
+                [item.id for item in removed],
+                recalculate=False,
+            )
             self.messages.delete_from(conversation_id, message.sequence_number + 1)
+        else:
+            removed = []
         message.raw_content = payload.content
         message.is_edited = True
         message.edited_at = utc_now()
@@ -598,6 +696,8 @@ class ConversationService:
             }
         conversation.updated_at = utc_now()
         self._recalculate_turns(conversation)
+        if removed:
+            self.relationships.recalculate(conversation)
         self.session.commit()
         return MessageResponse.model_validate(message)
 
@@ -626,7 +726,32 @@ class ConversationService:
             raise MessageDeleteRequiresTruncationError(
                 "Deleting this message requires truncating all later messages."
             )
+        removed = self.messages.from_sequence(conversation_id, message.sequence_number)
+        self.relationships.revert_for_messages(
+            conversation,
+            [item.id for item in removed],
+            recalculate=False,
+        )
         self.messages.delete_from(conversation_id, message.sequence_number)
         conversation.updated_at = utc_now()
         self._recalculate_turns(conversation)
+        self.relationships.recalculate(conversation)
         self.session.commit()
+
+    def relationship_state(self, conversation_id: int) -> RelationshipStateResponse:
+        return self.relationships.state(self._get(conversation_id))
+
+    def relationship_history(
+        self, conversation_id: int, *, limit: int, offset: int
+    ) -> RelationshipEventListResponse:
+        self._get(conversation_id)
+        return self.relationships.history(conversation_id, limit=limit, offset=offset)
+
+    async def manual_relationship_update(
+        self, conversation_id: int, payload: ManualRelationshipUpdate
+    ) -> RelationshipApplicationResult:
+        async with self.locks.acquire(
+            conversation_id, self.settings.conversation_lock_timeout_seconds
+        ):
+            conversation = self._get(conversation_id)
+            return self.relationships.manual_update(conversation, payload)

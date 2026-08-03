@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app import models  # noqa: F401
 from app.ai.exceptions import AIError, OllamaStreamInterruptedError
-from app.ai.parser import parse_roleplay_response
+from app.ai.parser import process_roleplay_response
 from app.ai.schemas import (
     AIModelDetails,
     AIModelInfo,
@@ -93,13 +93,14 @@ class FakeProvider:
                 '"raw_text":"*Zara looks up.* Tum theek ho?"}'
             )
         )
-        parsed, status = parse_roleplay_response(text)
+        processed = process_roleplay_response(text)
         return GenerationResult(
             provider="ollama",
             model=model or "test-model",
             text=text,
-            parsed_response=parsed,
-            parse_status=status,
+            parsed_response=processed.response,
+            parse_status=processed.parse_status,
+            parser_diagnostics=processed.diagnostics,
             done=True,
         )
 

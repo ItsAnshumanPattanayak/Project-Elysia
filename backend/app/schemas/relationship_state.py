@@ -18,6 +18,7 @@ class RelationshipStateBase(BaseModel):
     relationship_stage: str = "committed"
     turn_count: int = Field(default=0, ge=0)
     locked_values: dict[str, Any] = Field(default_factory=dict)
+    baseline_values: dict[str, Any] = Field(default_factory=dict)
 
 
 class RelationshipStateCreate(RelationshipStateBase):

@@ -1,24 +1,48 @@
 from datetime import datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from app.character_engine.schemas import PromptContext, PromptPackage
+from app.relationship.schemas import Mood, RelationshipEventType
+
+BoundedBlock = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)
+]
 
 
 class MemoryCandidate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     content: str = Field(min_length=1, max_length=1000)
     memory_type: str = Field(default="candidate", min_length=1, max_length=80)
     importance: int = Field(default=3, ge=1, le=5)
+    tags: list[Annotated[str, StringConstraints(min_length=1, max_length=80)]] = Field(
+        default_factory=list, max_length=12
+    )
 
 
 class StructuredRoleplayResponse(BaseModel):
-    narration_blocks: list[str] = Field(default_factory=list, max_length=12)
-    dialogue_blocks: list[str] = Field(default_factory=list, max_length=12)
-    emotion: str | None = Field(default=None, max_length=80)
-    relationship_event: str | None = Field(default=None, max_length=100)
+    model_config = ConfigDict(extra="forbid")
+
+    narration_blocks: list[BoundedBlock] = Field(default_factory=list, max_length=12)
+    dialogue_blocks: list[BoundedBlock] = Field(default_factory=list, max_length=12)
+    emotion: Mood | None = None
+    original_emotion: str | None = Field(default=None, max_length=80)
+    relationship_event: RelationshipEventType | None = None
+    model_relationship_suggestion: str | None = Field(default=None, max_length=100)
     memory_candidates: list[MemoryCandidate] = Field(default_factory=list, max_length=8)
     raw_text: str = Field(default="", max_length=20000)
+
+
+class ParserDiagnostics(BaseModel):
+    parse_status: Literal["structured", "repaired", "plain_text_fallback"]
+    parser_version: str = "2.0"
+    repair_attempted: bool = False
+    repair_actions: list[str] = Field(default_factory=list, max_length=10)
+    schema_valid: bool = False
+    fallback_used: bool = False
+    warnings: list[str] = Field(default_factory=list, max_length=10)
 
 
 class AIModelDetails(BaseModel):
@@ -70,7 +94,8 @@ class GenerationResult(BaseModel):
     model: str
     text: str
     parsed_response: StructuredRoleplayResponse
-    parse_status: Literal["structured", "plain_text_fallback"]
+    parse_status: Literal["structured", "repaired", "plain_text_fallback"]
+    parser_diagnostics: ParserDiagnostics | None = None
     done: bool
     finish_reason: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)

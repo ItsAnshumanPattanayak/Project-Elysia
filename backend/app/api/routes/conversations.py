@@ -10,6 +10,12 @@ from app.ai.exceptions import AIError, GenerationCancelledError
 from app.api.errors import error_payload
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
+from app.relationship.schemas import (
+    ManualRelationshipUpdate,
+    RelationshipApplicationResult,
+    RelationshipEventListResponse,
+    RelationshipStateResponse,
+)
 from app.schemas.conversation_api import (
     ConversationCreateRequest,
     ConversationDetailResponse,
@@ -96,6 +102,37 @@ def get_conversation(
     conversation_id: int, service: Service
 ) -> ConversationDetailResponse:
     return service.detail(conversation_id)
+
+
+@router.get("/{conversation_id}/relationship", response_model=RelationshipStateResponse)
+def get_relationship(
+    conversation_id: int, service: Service
+) -> RelationshipStateResponse:
+    return service.relationship_state(conversation_id)
+
+
+@router.get(
+    "/{conversation_id}/relationship/events",
+    response_model=RelationshipEventListResponse,
+)
+def get_relationship_events(
+    conversation_id: int,
+    service: Service,
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+) -> RelationshipEventListResponse:
+    return service.relationship_history(conversation_id, limit=limit, offset=offset)
+
+
+@router.patch(
+    "/{conversation_id}/relationship", response_model=RelationshipApplicationResult
+)
+async def update_relationship(
+    conversation_id: int,
+    payload: ManualRelationshipUpdate,
+    service: Service,
+) -> RelationshipApplicationResult:
+    return await service.manual_relationship_update(conversation_id, payload)
 
 
 @router.patch("/{conversation_id}", response_model=ConversationDetailResponse)

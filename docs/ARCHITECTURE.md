@@ -11,6 +11,9 @@ SQLAlchemy / SQLite
 
 ConversationService → ConversationContextBuilder
     → CharacterPromptBuilder → AIService → local Ollama provider
+
+Completed response → StructuredRoleplayProcessor → RelationshipEventResolver
+    → RelationshipEngine → RelationshipService → state + audit history
 ```
 
 The React application still provides only the Batch 2/3 foundation status screen. It does not read SQLite, calculate authoritative state, or expose an unfinished chat UI.
@@ -23,6 +26,8 @@ User persistence and completed character persistence use separate short transact
 
 Streaming accumulates bounded output only in memory. Completion is parsed and persisted atomically; errors, cancellation, interruption, or disconnect never save partial character output.
 
+Relationship application runs after that completed-exchange commit in its own short transaction. A scoring failure cannot destroy chat. Regeneration supersedes the previous event; edit/delete truncation marks affected events reverted and replays active events from the immutable relationship baseline.
+
 ## Concurrency and idempotency
 
 An async lock registry is keyed by conversation ID. Contention waits only for the configured short timeout and then returns `conversation_busy`. Reference counts remove idle lock entries after success, error, timeout, or cancellation. This protects a single local backend process, not multiple workers.
@@ -31,7 +36,6 @@ Optional `client_message_id` values are stored in user-message JSON metadata and
 
 ## Deferred components
 
-- Relationship scoring, mood calculation, and stage progression
 - Memory extraction, relevance search, and recall
 - Conversation summarization
 - Story branches and checkpoints

@@ -59,6 +59,7 @@ class ConversationContextBuilder:
             conversation_id=conversation.id,
             current_scene=conversation.current_scene or None,
             relationship_stage=conversation.relationship_stage,
+            current_mood=state.mood if state is not None else None,
             relationship_values=relationship_values,
             recent_messages=[
                 PromptMessage(role=role_map[item.sender], content=item.raw_content)

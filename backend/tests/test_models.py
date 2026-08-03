@@ -8,6 +8,7 @@ from app.models import (
     Conversation,
     Memory,
     Message,
+    RelationshipEvent,
     RelationshipState,
     RoleplayProfile,
 )
@@ -39,6 +40,7 @@ def test_all_tables_are_created(db_session: Session) -> None:
         "relationship_states",
         "memories",
         "application_settings",
+        "relationship_events",
     } <= names
 
 
@@ -78,6 +80,55 @@ def test_message_sequence_is_unique(db_session: Session) -> None:
 def test_database_constraints(db_session: Session) -> None:
     conversation = create_context(db_session)
     db_session.add(RelationshipState(conversation=conversation, attraction=101))
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+
+
+def test_relationship_event_confidence_and_application_key_constraints(
+    db_session: Session,
+) -> None:
+    conversation = create_context(db_session)
+    event = RelationshipEvent(
+        conversation=conversation,
+        event_type="neutral",
+        source="deterministic",
+        confidence=1.1,
+        evidence=[],
+        score_deltas={},
+        values_before={},
+        values_after={},
+        mood_before="neutral",
+        mood_after="neutral",
+        stage_before="friends",
+        stage_after="friends",
+        application_key="invalid-confidence",
+    )
+    db_session.add(event)
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+
+
+def test_relationship_event_application_key_is_unique(db_session: Session) -> None:
+    conversation = create_context(db_session)
+
+    def make_event() -> RelationshipEvent:
+        return RelationshipEvent(
+            conversation=conversation,
+            event_type="neutral",
+            source="deterministic",
+            confidence=0.5,
+            evidence=[],
+            score_deltas={},
+            values_before={},
+            values_after={},
+            mood_before="neutral",
+            mood_after="neutral",
+            stage_before="friends",
+            stage_after="friends",
+            application_key="same-application-key",
+        )
+
+    db_session.add_all([make_event(), make_event()])
     with pytest.raises(IntegrityError):
         db_session.commit()
     db_session.rollback()
