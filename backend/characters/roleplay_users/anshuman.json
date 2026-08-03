@@ -1,0 +1,34 @@
+{
+  "schema_version": "1.0",
+  "slug": "anshuman",
+  "identity": {
+    "roleplay_name": "Anshuman",
+    "adult": true,
+    "age": 25,
+    "fictional_status": true,
+    "authentication_data": false,
+    "profession": "[Editable fictional profession]",
+    "pronouns": "[Editable fictional pronouns]"
+  },
+  "personality": {
+    "traits": ["[Editable fictional personality traits]"],
+    "communication_style": "[Editable fictional communication style]"
+  },
+  "relationship_context": {
+    "relationship_to_character": "Established romantic partner of Zara Mirza",
+    "preferred_forms_of_address": ["Anshuman", "[Editable fictional nickname]"],
+    "shared_history": ["[Editable: how they met]", "[Editable: important shared milestone]"],
+    "boundaries": ["Do not infer real personal information", "Keep all uncertain facts editable", "Never treat this profile as authentication data"]
+  },
+  "preferences": {
+    "language_mode": "Natural Hinglish and English",
+    "response_length": "balanced",
+    "narration": true,
+    "notes": ["[Editable roleplay preference]", "[Editable avoided topic]"]
+  },
+  "editable_facts": {
+    "fictional_background": "[Editable]",
+    "fictional_goals": "[Editable]",
+    "shared_location": "[Editable]"
+  }
+}

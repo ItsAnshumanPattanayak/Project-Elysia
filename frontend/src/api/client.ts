@@ -1,5 +1,10 @@
 import { API_BASE_URL } from '../config/env'
-import type { HealthStatus, RootStatus, SystemInfo } from '../types/system'
+import type {
+  AIStatus,
+  HealthStatus,
+  RootStatus,
+  SystemInfo,
+} from '../types/system'
 
 export class ApiError extends Error {}
 
@@ -51,11 +56,21 @@ const isSystem = (value: unknown): value is SystemInfo =>
   typeof value.environment === 'string' &&
   typeof value.database_type === 'string' &&
   typeof value.local_first === 'boolean' &&
-  value.ai_integration === 'not_configured' &&
+  typeof value.ai_integration === 'string' &&
   isObject(value.documentation)
+const isAIStatus = (value: unknown): value is AIStatus =>
+  isObject(value) &&
+  value.provider === 'ollama' &&
+  typeof value.available === 'boolean' &&
+  typeof value.state === 'string' &&
+  typeof value.model_ready === 'boolean' &&
+  typeof value.base_url === 'string' &&
+  typeof value.message === 'string'
 
 export const api = {
   root: () => request('/', isRoot),
   health: () => request('/health', isHealth),
   systemInfo: () => request('/api/system/info', isSystem),
+  aiStatus: (refresh = false) =>
+    request(`/api/ai/status${refresh ? '?refresh=true' : ''}`, isAIStatus),
 }

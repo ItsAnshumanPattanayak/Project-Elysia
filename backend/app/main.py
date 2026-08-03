@@ -3,14 +3,23 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
+from app.ai.exceptions import AIError
+from app.api.errors import (
+    CHARACTER_ERRORS,
+    ai_error_handler,
+    character_error_handler,
+    validation_error_handler,
+)
 from app.api.router import api_router
 from app.core.config import get_settings
 from app.core.constants import APP_DESCRIPTION
 from app.core.logging import configure_logging
 from app.db.session import engine
+from app.services.ai_service import get_ai_service
 
 settings = get_settings()
 configure_logging(settings.log_level)
@@ -27,6 +36,9 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         logger.exception("Database connectivity check failed during startup")
         raise
     yield
+    if get_ai_service.cache_info().currsize:
+        await get_ai_service().aclose()
+        get_ai_service.cache_clear()
     logger.info("Shutting down %s", settings.app_name)
 
 
@@ -41,10 +53,14 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=[settings.frontend_origin],
         allow_credentials=False,
-        allow_methods=["GET"],
+        allow_methods=["GET", "POST"],
         allow_headers=["Content-Type"],
     )
     application.include_router(api_router)
+    application.add_exception_handler(AIError, ai_error_handler)
+    for error_type in CHARACTER_ERRORS:
+        application.add_exception_handler(error_type, character_error_handler)
+    application.add_exception_handler(RequestValidationError, validation_error_handler)
     return application
 
 

@@ -107,6 +107,29 @@ h1 em {
   gap: 14px;
   padding: 16px 20px;
 }
+.status-stack {
+  margin-top: 38px;
+  width: min(100%, 680px);
+  display: grid;
+  gap: 12px;
+}
+.status-stack .status {
+  margin-top: 0;
+  width: 100%;
+}
+.ai-status.ready .pulse {
+  background: #66d9a2;
+  box-shadow: 0 0 14px #66d9a2;
+}
+.ai-status.unavailable .pulse,
+.ai-status.model_not_installed .pulse {
+  background: #f0a36a;
+  box-shadow: 0 0 12px #f0a36a;
+}
+.ai-status.model_not_configured .pulse {
+  background: #c99af5;
+  box-shadow: 0 0 12px #c99af5;
+}
 .status span {
   display: flex;
   flex-direction: column;

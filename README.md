@@ -1,29 +1,30 @@
 # Project Elysia
 
-**Status: Batch 1 foundation**
+**Status: Batch 2 — character engine and local Ollama integration**
 
-Project Elysia is a private, local-first AI character roleplay chat application. This repository currently provides requirements, a typed FastAPI health API, an Alembic-managed SQLite model, idempotent starter data, and a responsive React status screen. AI generation, Ollama integration, chat streaming, relationship calculations, memory extraction, and the finished chat interface are planned—not implemented.
+Project Elysia is a private, local-first AI character roleplay application. Batch 2 adds validated fictional character configuration, deterministic prompt composition, live Ollama readiness/model discovery, non-streaming generation, ordered SSE streaming, structured response parsing, and plain-text fallback. Persisted chat, relationship calculations, memory extraction/retrieval, and the finished chat UI are not implemented.
 
-## Current and planned capabilities
+There are no accounts, payments, subscriptions, message limits, telemetry, paid APIs, or cloud AI fallbacks.
 
-Current: central environment configuration and logging; `/`, `/health`, and `/api/system/info`; seven relational models with constraints; repeatable migrations and seeds; isolated backend tests; frontend loading, connected, unavailable/retry, error and 404 states; Windows setup/start scripts.
-
-Planned: conversation APIs and UI, local Ollama streaming, structured roleplay output, transparent relationship events, user-reviewable memory, backup/export/deletion, and accessibility hardening. There are no accounts, payments, subscriptions, message limits, analytics, or paid/cloud AI APIs.
-
-## Architecture and stack
-
-React 19 + Vite + TypeScript + Tailwind form the browser client. It calls a loopback FastAPI service using Pydantic 2, SQLAlchemy 2, Alembic, and SQLite. A future service abstraction will call local Ollama. See [architecture](docs/ARCHITECTURE.md), [requirements](docs/PRODUCT_REQUIREMENTS.md), and [data model](docs/DATA_MODEL.md).
+## Architecture
 
 ```text
-backend/   FastAPI, models, migrations, seeds, tests
-frontend/  React foundation screen and tests
-docs/      product, character, safety, response, architecture specifications
-scripts/   PowerShell setup and launch helpers
+React status screen
+        ↓ loopback HTTP
+FastAPI routes
+        ↓
+AIService + deterministic character engine
+        ↓                         ↓
+Ollama provider             SQLite Batch 1 data
+        ↓                    (not mutated by generation)
+Local Ollama /api/chat
 ```
 
-## Prerequisites and Windows setup
+The stack is React, Vite, TypeScript, Tailwind, FastAPI, Pydantic 2, SQLAlchemy 2, Alembic, SQLite, httpx, pytest, Vitest, Ruff, Black, Mypy, ESLint, and Prettier.
 
-Install Python 3.11 or newer, Node.js 20 or newer, and npm. From PowerShell at any location:
+## Setup
+
+Requirements: Python 3.11+, Node.js 20+, npm, and a separately installed Ollama application for real generation.
 
 ```powershell
 & "E:\Project-Elysia\scripts\setup.ps1"
@@ -31,28 +32,62 @@ Install Python 3.11 or newer, Node.js 20 or newer, and npm. From PowerShell at a
 & "E:\Project-Elysia\scripts\start_frontend.ps1"
 ```
 
-Open `http://localhost:5173`; API docs are at `http://127.0.0.1:8000/docs`. Setup creates `.env` only if absent.
+Open `http://localhost:5173`; API documentation is at `http://127.0.0.1:8000/docs`. Setup never overwrites an existing `.env`. Ollama is not installed or updated by this project, and models are never pulled automatically.
 
-## Manual setup and database
+## Ollama configuration
 
-```powershell
-cd backend
-python -m venv .venv
-& .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
-& .\.venv\Scripts\python.exe -m alembic upgrade head
-& .\.venv\Scripts\python.exe scripts\init_db.py
+Copy `backend/.env.example` to ignored `backend/.env` and set `OLLAMA_MODEL` to an exact existing identifier from `ollama list`. Important settings include:
 
-cd ..\frontend
-npm.cmd install
-npm.cmd run dev
+```dotenv
+AI_PROVIDER=ollama
+OLLAMA_BASE_URL=http://127.0.0.1:11434
+OLLAMA_MODEL=your-existing-model:tag
+OLLAMA_CONNECT_TIMEOUT_SECONDS=3
+OLLAMA_READ_TIMEOUT_SECONDS=120
+OLLAMA_CONTEXT_SIZE=4096
+OLLAMA_MAX_OUTPUT_TOKENS=700
 ```
 
-Run migrations with `python -m alembic upgrade head`, seed with `python scripts/init_db.py`, and perform a guarded development reset with `python scripts/reset_db.py --yes`, all from `backend`. The seed command is safe to repeat.
+Inspect readiness without downloading anything:
+
+```powershell
+cd E:\Project-Elysia\backend
+& .\.venv\Scripts\python.exe scripts\check_ollama.py
+```
+
+See [Ollama setup](docs/OLLAMA_SETUP.md) for selection and resource guidance.
+
+## Batch 2 API
+
+- `GET /api/characters`
+- `GET /api/characters/{slug}`
+- `POST /api/characters/{slug}/prompt-preview`
+- `GET /api/ai/status?refresh=false`
+- `GET /api/ai/models`
+- `POST /api/ai/generate`
+- `POST /api/ai/generate/stream`
+
+Existing `/`, `/health`, and `/api/system/info` endpoints remain available. Basic health does not fail when Ollama is unavailable.
+
+Prompt preview example:
+
+```powershell
+$Body = @{
+    roleplay_user_slug = "anshuman"
+    current_scene = "Zara's private office after business hours."
+    behaviour_hint = "concern"
+    recent_messages = @(@{ role = "user"; content = "Aaj ka din bahut tiring tha." })
+} | ConvertTo-Json -Depth 5
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/api/characters/zara-mirza/prompt-preview" -ContentType "application/json" -Body $Body
+```
+
+For generation, wrap that context as `{ "context": { ... } }` and post to `/api/ai/generate`. The streaming endpoint accepts the same body and returns `text/event-stream` events: `start`, `token`, `metadata`, and `completed`, or a safe `error`. These development endpoints do not save output.
 
 ## Quality commands
 
 ```powershell
 cd backend
+python -m alembic upgrade head
 python -m ruff check .
 python -m black --check .
 python -m mypy app
@@ -64,10 +99,13 @@ npm.cmd run format:check
 npm.cmd run typecheck
 npm.cmd run test -- --run
 npm.cmd run build
+npm.cmd audit
 ```
 
-## Privacy and limitations
+Automated tests use fake providers and mocked HTTP transports; they do not need or mutate real Ollama. Test databases are isolated from `backend/data/elysia.db`.
 
-Primary data stays in `backend/data/elysia.db`; no telemetry or cloud message storage is included. Local files remain readable to people or software with device access, so protect the Windows account and backups. The current UI is a foundation screen only and does not chat. Zara Mirza is fictional and the application does not claim consciousness or real-world presence. See [safety and privacy](docs/SAFETY_AND_PRIVACY.md).
+## Privacy and current limitations
 
-The roadmap advances through conversation services, local AI, memory/relationship engines, then the finished experience. Version 1 excludes voice, image generation, mobile-native apps, public sharing, and cloud hosting.
+All default AI traffic stays on loopback and no private prompt is normally logged. Configuration accepts no request-supplied provider URL. Messages, memories, summaries, and scenes are treated as untrusted narrative context, although prompt injection cannot be guaranteed to be completely solved. Zara Mirza and the Anshuman roleplay profile are explicitly fictional adults and are not claims about real people.
+
+The frontend shows backend, database, Ollama, version, configured model, and readiness state only. It intentionally has no chat or normal generation controls. See [architecture](docs/ARCHITECTURE.md), [response format](docs/RESPONSE_FORMAT.md), and [safety](docs/SAFETY_AND_PRIVACY.md).

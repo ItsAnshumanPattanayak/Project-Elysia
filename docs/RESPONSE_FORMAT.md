@@ -29,4 +29,6 @@ The future backend-normalized representation is:
 
 `narration_blocks` and `dialogue_blocks` preserve ordered display units; `emotion` is a constrained presentation hint; `relationship_event` is an input to a future deterministic service, never a direct score mutation; `memory_candidates` require validation and policy filtering; and `raw_text` supports debugging and graceful fallback. Schema validation, versioning, safe escaping, length limits, and parse-failure fallback are required when generation is introduced.
 
-Structured AI generation, parsing, relationship events, and memory extraction are **not implemented in Batch 1**.
+Batch 2 requests this JSON contract through local Ollama and validates it with Pydantic. Valid JSON receives `parse_status: structured`. Markdown-fenced JSON is accepted defensively. Noncompliant plain text receives `parse_status: plain_text_fallback`; visible `*narration*` and attributed dialogue are extracted where possible, while the raw text is preserved.
+
+Relationship events and memory candidates are descriptive output only. Batch 2 never changes scores, increments turns, saves messages, or stores memories. Streaming emits `start`, ordered `token`, `metadata`, then `completed`; failures use a terminal `error` event.

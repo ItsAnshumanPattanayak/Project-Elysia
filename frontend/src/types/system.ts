@@ -18,6 +18,28 @@ export interface SystemInfo {
   environment: string
   database_type: string
   local_first: boolean
-  ai_integration: 'not_configured'
+  ai_integration:
+    | 'ready'
+    | 'unavailable'
+    | 'model_not_configured'
+    | 'model_not_installed'
   documentation: Record<string, string>
+}
+
+export type AIState =
+  | 'ready'
+  | 'unavailable'
+  | 'model_not_configured'
+  | 'model_not_installed'
+
+export interface AIStatus {
+  provider: 'ollama'
+  available: boolean
+  state: AIState
+  version: string | null
+  configured_model: string | null
+  model_ready: boolean
+  base_url: string
+  error_code: string | null
+  message: string
 }

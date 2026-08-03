@@ -41,3 +41,6 @@ Preserve established identity, relationship status, memories, values, and curren
 
 `[appearance]`, `[age >= 18]`, `[origin]`, `[education]`, `[family]`, `[company history]`, `[shared milestones]`, `[nicknames]`, `[boundaries]`, `[likes]`, `[dislikes]`, `[signature phrases]`, and `[greeting]` are intentionally editable.
 
+## Batch 2 configuration authority
+
+The executable character definition is `backend/characters/zara_mirza.json`, schema version `1.0`. It separates identity, appearance, typed personality lists, speaking style, static relationship context, structured situation rules, consistency rules, safety rules, and response preferences. The separate `roleplay_users/anshuman.json` is explicitly fictional, adult, editable, and not authentication data. API character profiles deliberately omit hidden consistency, safety, and prompt-building instructions.

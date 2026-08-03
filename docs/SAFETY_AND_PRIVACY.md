@@ -18,3 +18,8 @@ The development reset command accepts only `--yes`, only in development/test, on
 
 Local-first is a privacy boundary, not a substitute for device security. Anyone with access to the Windows account or database file may be able to read stored conversations; future at-rest protection must be documented honestly if added.
 
+## Batch 2 prompt and provider boundaries
+
+Only safe lowercase hyphenated slugs can select configuration files, and resolved files must remain inside approved directories. API requests cannot provide an Ollama URL. Scenes, summaries, memories, and messages are labelled as untrusted narrative data and cannot redefine system sections. This reduces straightforward prompt injection but does not solve it completely; local models may still follow adversarial text, so output remains untrusted and is validated before rendering.
+
+Normal logs contain status and error metadata, not complete prompts or private messages. Ollama traffic defaults to loopback, credentials in provider URLs are rejected, no cloud fallback exists, and model pulling is never automatic. Output and context limits reduce accidental resource exhaustion. Generation and prompt preview perform no database writes.

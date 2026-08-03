@@ -3,7 +3,7 @@ import { AppStatus } from '../components/AppStatus'
 const capabilities = [
   ['Local API', 'FastAPI foundation ready'],
   ['Private storage', 'SQLite data stays on this device'],
-  ['AI connection', 'Not configured yet'],
+  ['AI connection', 'Local Ollama status and model readiness'],
 ]
 
 export function HomePage() {
@@ -28,7 +28,8 @@ export function HomePage() {
           <h2 id="foundation-heading">The foundation is ready.</h2>
           <p>
             Data models, local storage, and service health are in place.
-            Character chat and local AI generation arrive in later batches.
+            Character configuration, prompt preview, and local Ollama generation
+            are ready for development. Persisted chat arrives in a later batch.
           </p>
         </div>
         <div className="capabilities">
