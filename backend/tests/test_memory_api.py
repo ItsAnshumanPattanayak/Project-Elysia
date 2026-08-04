@@ -76,6 +76,34 @@ def test_manual_memory_crud_search_and_rebuild(client: TestClient) -> None:
     assert rebuilt.status_code == 200
 
 
+def test_memory_list_filters_locked_state(client: TestClient) -> None:
+    conversation = conversation_id(client)
+    first = client.post(
+        f"/api/conversations/{conversation}/memories",
+        json={
+            "content": "A locked local preference.",
+            "memory_type": "user_preference",
+            "locked": True,
+        },
+    )
+    assert first.status_code == 201
+    second = client.post(
+        f"/api/conversations/{conversation}/memories",
+        json={
+            "content": "An unlocked local preference.",
+            "memory_type": "user_preference",
+        },
+    )
+    assert second.status_code == 201
+    locked = client.get(
+        f"/api/conversations/{conversation}/memories",
+        params={"status": "active", "locked": True},
+    )
+    assert locked.status_code == 200
+    assert locked.json()["total"] == 1
+    assert locked.json()["items"][0]["is_locked"] is True
+
+
 def test_memory_duplicate_secret_sensitive_and_mismatch(client: TestClient) -> None:
     first = conversation_id(client)
     second = conversation_id(client)

@@ -43,3 +43,18 @@ export interface AIStatus {
   error_code: string | null
   message: string
 }
+
+export interface AIModel {
+  name: string
+  modified_at: string | null
+  size: number
+  digest: string
+  details: {
+    family: string | null
+    parameter_size: string | null
+    quantization_level: string | null
+    format: string | null
+    context_length: number | null
+  }
+  is_configured: boolean
+}

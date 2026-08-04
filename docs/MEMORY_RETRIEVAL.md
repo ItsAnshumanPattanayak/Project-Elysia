@@ -1,5 +1,8 @@
 # Deterministic Memory Retrieval
 
+Batch 7 retrieval preview is local diagnostics only. It exposes bounded lexical score
+components; scores are not added to prompts, and no embedding model is required.
+
 Version 1 uses no embeddings, network call, model download or vector database. It ranks active memories within exactly one conversation.
 
 ## Query and candidate pool

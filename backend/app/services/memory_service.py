@@ -72,6 +72,7 @@ class MemoryService:
         memory_type: str | None,
         source: str | None,
         pinned: bool | None,
+        locked: bool | None,
         sensitive: bool | None,
         query: str | None,
     ) -> MemoryListResponse:
@@ -84,6 +85,7 @@ class MemoryService:
             memory_type=memory_type,
             source=source,
             pinned=pinned,
+            locked=locked,
             sensitive=sensitive,
             query=query,
         )

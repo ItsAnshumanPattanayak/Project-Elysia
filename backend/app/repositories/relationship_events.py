@@ -45,22 +45,44 @@ class RelationshipEventRepository:
         return list(reversed(items))
 
     def page(
-        self, conversation_id: int, *, limit: int, offset: int
+        self,
+        conversation_id: int,
+        *,
+        limit: int,
+        offset: int,
+        event_type: str | None = None,
+        source: str | None = None,
+        reverted: bool | None = None,
+        oldest_first: bool = False,
     ) -> tuple[list[RelationshipEvent], int]:
+        filters = [RelationshipEvent.conversation_id == conversation_id]
+        if event_type is not None:
+            filters.append(RelationshipEvent.event_type == event_type)
+        if source is not None:
+            filters.append(RelationshipEvent.source == source)
+        if reverted is not None:
+            filters.append(RelationshipEvent.is_reverted.is_(reverted))
         total = (
             self.session.scalar(
-                select(func.count())
-                .select_from(RelationshipEvent)
-                .where(RelationshipEvent.conversation_id == conversation_id)
+                select(func.count()).select_from(RelationshipEvent).where(*filters)
             )
             or 0
         )
         items = list(
             self.session.scalars(
                 select(RelationshipEvent)
-                .where(RelationshipEvent.conversation_id == conversation_id)
+                .where(*filters)
                 .order_by(
-                    RelationshipEvent.created_at.desc(), RelationshipEvent.id.desc()
+                    (
+                        RelationshipEvent.created_at.asc()
+                        if oldest_first
+                        else RelationshipEvent.created_at.desc()
+                    ),
+                    (
+                        RelationshipEvent.id.asc()
+                        if oldest_first
+                        else RelationshipEvent.id.desc()
+                    ),
                 )
                 .offset(offset)
                 .limit(limit)

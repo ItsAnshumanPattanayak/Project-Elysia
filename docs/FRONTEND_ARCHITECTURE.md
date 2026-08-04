@@ -1,5 +1,9 @@
 # Frontend Architecture
 
+New routes are `/relationship/:conversationId`, `/memories/:conversationId`, and
+`/settings`. Requests are abortable, search is debounced, and histories remain
+paginated. Existing focus-managed dialogs and toast notifications are reused.
+
 Batch 6 turns the React package into the local desktop chat client. It remains a
 single-page application served by Vite and talks only to the configured loopback
 FastAPI origin (`VITE_API_BASE_URL`, default `http://127.0.0.1:8000`). No account,
@@ -61,4 +65,3 @@ Generation navigation aborts the active request. Partial character output is
 discarded on failure or cancellation; persisted server messages are reloaded when
 reconciliation is uncertain. The accepted event is the boundary after which the
 user message may already exist on the server.
-

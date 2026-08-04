@@ -11,13 +11,19 @@ function readDraft(conversationId: number): string {
   }
 }
 
-export function useDraft(conversationId: number) {
-  const [draft, setDraft] = useState(() => readDraft(conversationId))
-  useEffect(() => setDraft(readDraft(conversationId)), [conversationId])
+export function useDraft(conversationId: number, persistence = true) {
+  const [draft, setDraft] = useState(() =>
+    persistence ? readDraft(conversationId) : '',
+  )
+  useEffect(
+    () => setDraft(persistence ? readDraft(conversationId) : ''),
+    [conversationId, persistence],
+  )
   useEffect(() => {
     const timer = window.setTimeout(() => {
       try {
-        if (draft)
+        if (!persistence) localStorage.removeItem(key(conversationId))
+        else if (draft)
           localStorage.setItem(key(conversationId), draft.slice(0, MAX_DRAFT))
         else localStorage.removeItem(key(conversationId))
       } catch {
@@ -25,7 +31,7 @@ export function useDraft(conversationId: number) {
       }
     }, 180)
     return () => window.clearTimeout(timer)
-  }, [conversationId, draft])
+  }, [conversationId, draft, persistence])
   const clear = () => {
     setDraft('')
     try {

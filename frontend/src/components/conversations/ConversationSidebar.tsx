@@ -1,10 +1,15 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import { useApp } from '../../state/AppContext'
 import { relativeDate } from '../../utils/dates'
 import { ConversationActions } from './ConversationActions'
 import { SystemStatusIndicator } from '../status/SystemStatusIndicator'
 
 export function ConversationSidebar() {
+  const location = useLocation()
+  const matched = location.pathname.match(
+    /^\/(?:chat|relationship|memories)\/(\d+)$/,
+  )
+  const activeConversationId = matched?.[1]
   const {
     conversations,
     loading,
@@ -37,6 +42,41 @@ export function ConversationSidebar() {
           ×
         </button>
       </div>
+      <nav className="workspace-navigation" aria-label="Workspace">
+        {activeConversationId && (
+          <>
+            <NavLink
+              to={`/chat/${activeConversationId}`}
+              activeClassName="active"
+              onClick={() => setDrawerOpen(false)}
+            >
+              Chat
+            </NavLink>
+            <NavLink
+              to={`/relationship/${activeConversationId}`}
+              activeClassName="active"
+              onClick={() => setDrawerOpen(false)}
+            >
+              Relationship
+            </NavLink>
+            <NavLink
+              to={`/memories/${activeConversationId}`}
+              activeClassName="active"
+              onClick={() => setDrawerOpen(false)}
+            >
+              Memories
+            </NavLink>
+          </>
+        )}
+        <NavLink
+          exact
+          to="/settings"
+          activeClassName="active"
+          onClick={() => setDrawerOpen(false)}
+        >
+          Settings
+        </NavLink>
+      </nav>
       <button
         className="new-conversation"
         type="button"

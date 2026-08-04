@@ -1,5 +1,9 @@
 # Safety and Privacy
 
+Batch 7 settings are allow-listed. Export excludes secrets, paths, messages,
+memories, relationship history, hidden prompts, and `.env`; import rejects unknown
+keys. Provider URL editing, shell execution, model download, and cloud sync are absent.
+
 ## Current guarantees
 
 Primary application data remains in local SQLite storage. Project Elysia includes no telemetry, analytics, cloud message storage, authentication service, paid API, or external AI dependency. Credentials and real `.env` files are excluded from source control, logs avoid secrets, and API metadata never reveals the database path.

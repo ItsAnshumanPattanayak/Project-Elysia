@@ -14,6 +14,7 @@ from app.api.errors import (
     character_error_handler,
     conversation_error_handler,
     memory_error_handler,
+    settings_error_handler,
     validation_error_handler,
 )
 from app.api.router import api_router
@@ -24,6 +25,7 @@ from app.db.session import engine
 from app.memory.exceptions import MemoryError
 from app.services.ai_service import get_ai_service
 from app.services.conversation_errors import ConversationError
+from app.services.settings_service import SettingsApiError
 
 settings = get_settings()
 configure_logging(settings.log_level)
@@ -64,6 +66,7 @@ def create_app() -> FastAPI:
     application.add_exception_handler(AIError, ai_error_handler)
     application.add_exception_handler(ConversationError, conversation_error_handler)
     application.add_exception_handler(MemoryError, memory_error_handler)
+    application.add_exception_handler(SettingsApiError, settings_error_handler)
     for error_type in CHARACTER_ERRORS:
         application.add_exception_handler(error_type, character_error_handler)
     application.add_exception_handler(RequestValidationError, validation_error_handler)

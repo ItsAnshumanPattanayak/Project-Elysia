@@ -27,6 +27,7 @@ import { useToast } from '../components/common/ToastProvider'
 import { RelationshipSummary } from '../components/relationship/RelationshipSummary'
 import { useDraft } from '../hooks/useDraft'
 import { useApp } from '../state/AppContext'
+import { useSettings } from '../state/SettingsContext'
 import { chatReducer, initialStreamState } from '../state/chatReducer'
 import type { ConversationDetail } from '../types/conversation'
 import type { Message } from '../types/message'
@@ -66,7 +67,11 @@ export function ChatPage() {
   const [state, dispatch] = useReducer(chatReducer, initialStreamState)
   const [pending, setPending] = useState<PendingAction | null>(null)
   const streamController = useRef<AbortController | null>(null)
-  const { draft, setDraft, clear } = useDraft(validId ? conversationId : 0)
+  const { preferences } = useSettings()
+  const { draft, setDraft, clear } = useDraft(
+    validId ? conversationId : 0,
+    preferences.draftPersistence,
+  )
   const { setDrawerOpen, refresh: refreshSidebar } = useApp()
   const notify = useToast()
 
@@ -196,13 +201,20 @@ export function ChatPage() {
     if (!content) return
     dispatch({ type: 'submit', conversationId, content })
     addOptimistic(content)
-    const payload = { content, client_message_id: clientMessageId() }
+    const payload = {
+      content,
+      client_message_id: clientMessageId(),
+      language_mode:
+        preferences.languageMode === 'auto'
+          ? undefined
+          : preferences.languageMode,
+    }
     const controller = new AbortController()
     streamController.current = controller
     let accepted = false
     let completed = false
     try {
-      if (typeof ReadableStream === 'undefined') {
+      if (!preferences.streaming || typeof ReadableStream === 'undefined') {
         const result = await sendMessage(
           conversationId,
           payload,
@@ -428,14 +440,17 @@ export function ChatPage() {
                 ? void regenerate()
                 : void submit(state.retryContent ?? draft)
             }
+            enterToSend={preferences.enterToSend}
           />
         </section>
-        <RelationshipSummary
-          relationship={relationship}
-          memoryCount={memoryCount}
-          selectedCount={selectedCount}
-          loading={false}
-        />
+        {preferences.relationshipPanel && (
+          <RelationshipSummary
+            relationship={relationship}
+            memoryCount={memoryCount}
+            selectedCount={selectedCount}
+            loading={false}
+          />
+        )}
       </div>
       {pending?.kind === 'regenerate' && (
         <ConfirmationDialog

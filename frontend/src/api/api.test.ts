@@ -7,8 +7,20 @@ import {
 } from './conversations'
 import { AppApiError } from './errors'
 import { listMessages } from './messages'
-import { getRelationship } from './relationships'
-import { listMemories } from './memories'
+import {
+  getRelationship,
+  listRelationshipEvents,
+  recalculateRelationship,
+  updateRelationship,
+} from './relationships'
+import {
+  archiveMemory,
+  createMemory,
+  listMemories,
+  rebuildMemories,
+  searchMemoryPreview,
+} from './memories'
+import { getSettings, resetSettings, updateSettings } from './settings'
 import { requestJson, requestVoid } from './client'
 
 const summary = {
@@ -185,5 +197,113 @@ describe('typed API layer', () => {
       response({ unexpected: true }),
     )
     await expect(listConversations()).rejects.toBeInstanceOf(AppApiError)
+  })
+  it('sends relationship filters and parses pagination', async () => {
+    const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(() =>
+      response({
+        items: [],
+        total: 0,
+        limit: 25,
+        offset: 0,
+        has_more: false,
+      }),
+    )
+    await listRelationshipEvents(4, {
+      source: 'manual',
+      reverted: false,
+      oldestFirst: true,
+    })
+    expect(String(fetch.mock.calls[0][0])).toContain('source=manual')
+    expect(String(fetch.mock.calls[0][0])).toContain('reverted=false')
+  })
+  it('updates and recalculates relationship safely', async () => {
+    const fetch = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementationOnce(() => response({ event_id: 9 }))
+      .mockImplementationOnce(() =>
+        response({
+          before: { conversation_id: 1, mood: 'neutral', trust: 50 },
+          after: { conversation_id: 1, mood: 'happy', trust: 52 },
+          warnings: [],
+        }),
+      )
+    await updateRelationship(1, { trust: 52, reason: 'Test' })
+    expect(fetch.mock.calls[0][1]).toMatchObject({ method: 'PATCH' })
+    expect((await recalculateRelationship(1)).after.mood).toBe('happy')
+  })
+  it('sends all safe memory filters', async () => {
+    const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(() =>
+      response({
+        items: [],
+        total: 0,
+        limit: 25,
+        offset: 0,
+        has_more: false,
+      }),
+    )
+    await listMemories(2, {
+      status: '',
+      type: 'user_fact',
+      pinned: true,
+      locked: false,
+      sensitive: true,
+      query: 'local',
+      limit: 25,
+    })
+    const url = String(fetch.mock.calls[0][0])
+    expect(url).not.toContain('status=')
+    expect(url).toContain('locked=false')
+    expect(url).toContain('query=local')
+  })
+  it('creates, previews, rebuilds, and archives memories', async () => {
+    const memory = { id: 3, content: 'Local fact' }
+    const fetch = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementationOnce(() => response(memory))
+      .mockImplementationOnce(() =>
+        response({ items: [], total_characters: 0 }),
+      )
+      .mockImplementationOnce(() =>
+        response({ before: {}, after: {}, warnings: [] }),
+      )
+      .mockImplementationOnce(() => response(null, 204))
+    await createMemory(1, {
+      content: 'Local fact',
+      memory_type: 'user_fact',
+    })
+    await searchMemoryPreview(1, { query: 'fact' })
+    await rebuildMemories(1)
+    await archiveMemory(1, 3)
+    expect(fetch.mock.calls.map((call) => call[1]?.method)).toEqual([
+      'POST',
+      'POST',
+      'POST',
+      'DELETE',
+    ])
+  })
+  it('loads, saves, and resets safe settings', async () => {
+    const payload = {
+      schema_version: 1,
+      items: [
+        {
+          key: 'temperature',
+          value: 0.8,
+          category: 'ai',
+          is_default: true,
+          restart_required: false,
+        },
+      ],
+    }
+    const fetch = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(() => response(payload))
+    expect((await getSettings()).items[0].key).toBe('temperature')
+    await updateSettings({ temperature: 1 })
+    await resetSettings({ category: 'ai' })
+    expect(fetch.mock.calls.map((call) => call[1]?.method)).toEqual([
+      undefined,
+      'PATCH',
+      'POST',
+    ])
   })
 })

@@ -35,14 +35,25 @@ export interface Memory {
   importance: number
   confidence: number
   tags: string[]
+  entities: string[]
   source: MemorySource
   status: MemoryStatus
   is_sensitive: boolean
   is_pinned: boolean
   is_locked: boolean
   usage_count: number
+  last_used_at: string | null
+  last_confirmed_at: string | null
+  source_user_message_id: number | null
+  source_character_message_id: number | null
+  supersedes_memory_id: number | null
+  superseded_by_memory_id: number | null
   created_at: string
   updated_at: string
+}
+
+export interface MemoryDetail extends Memory {
+  memory_metadata: Record<string, unknown>
 }
 
 export interface MemoryList {
@@ -69,4 +80,34 @@ export interface MemoryUpdate extends Partial<ManualMemoryCreate> {
   archived?: boolean
   force?: boolean
   reason?: string
+}
+
+export interface MemorySearchScore {
+  lexical: number
+  importance: number
+  confidence: number
+  recency: number
+  tag_entity: number
+  pinned_type: number
+  final_score: number
+}
+
+export interface RankedMemory {
+  id: number
+  content: string
+  memory_type: MemoryType
+  importance: number
+  score: MemorySearchScore
+  created_at: string
+}
+
+export interface MemorySearchPreview {
+  items: RankedMemory[]
+  total_characters: number
+}
+
+export interface MemoryRebuild {
+  before: Record<string, number>
+  after: Record<string, number>
+  warnings: string[]
 }

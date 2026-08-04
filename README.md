@@ -1,5 +1,10 @@
 # Project Elysia
 
+Batch 7 adds conversation-specific [relationship](docs/RELATIONSHIP_DASHBOARD.md)
+and [memory](docs/MEMORY_DASHBOARD.md) dashboards plus global
+[safe local settings](docs/SETTINGS.md). The app remains local-only and does not
+install Ollama, pull models, or expose provider secrets.
+
 **Status: Batch 6 — frontend foundation and local chat MVP**
 
 Project Elysia is a private, local-first AI character roleplay application. The React client now provides responsive conversation navigation, accessible creation and lifecycle controls, paginated history, structured chat rendering, per-conversation drafts, fetch-based SSE generation, message edit/delete/regeneration, and compact relationship and memory context. Full management dashboards, semantic/vector retrieval, and automatic summaries remain deferred.

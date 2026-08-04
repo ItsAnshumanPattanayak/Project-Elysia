@@ -113,6 +113,37 @@ function mockBackend(options: { empty?: boolean; archived?: boolean } = {}) {
     const url = String(input)
     if (url.endsWith('/health')) return json(health)
     if (url.includes('/api/ai/status')) return json(ai)
+    if (url.includes('/api/ai/models'))
+      return json([
+        {
+          name: 'llama3.1:latest',
+          modified_at: null,
+          size: 4_000_000_000,
+          digest: 'local',
+          details: {},
+          is_configured: true,
+        },
+      ])
+    if (url.endsWith('/api/settings'))
+      return json({
+        schema_version: 1,
+        items: [
+          { key: 'response_length', value: 'balanced', category: 'chat' },
+          { key: 'temperature', value: 0.8, category: 'ai' },
+          { key: 'top_p', value: 0.9, category: 'ai' },
+          { key: 'top_k', value: 40, category: 'ai' },
+          { key: 'repeat_penalty', value: 1.1, category: 'ai' },
+          { key: 'context_size', value: 4096, category: 'ai' },
+          { key: 'max_output_tokens', value: 700, category: 'ai' },
+          { key: 'selected_model', value: 'llama3.1:latest', category: 'ai' },
+          {
+            key: 'relationship_engine_enabled',
+            value: true,
+            category: 'relationship',
+          },
+          { key: 'auto_memory_enabled', value: true, category: 'memory' },
+        ],
+      })
     if (url.includes('/api/characters'))
       return json([
         {
@@ -135,8 +166,16 @@ function mockBackend(options: { empty?: boolean; archived?: boolean } = {}) {
         offset: 0,
         has_more: false,
       })
+    if (url.includes('/api/conversations/1/relationship/events'))
+      return json({
+        items: [],
+        total: 0,
+        limit: 25,
+        offset: 0,
+        has_more: false,
+      })
     if (url.endsWith('/api/conversations/1/relationship'))
-      return json(relationship)
+      return json({ ...relationship, updated_at: '2026-08-03T10:01:00Z' })
     if (url.includes('/api/conversations/1/memories'))
       return json({ items: [], total: 3, limit: 1, offset: 0, has_more: true })
     if (
@@ -309,5 +348,62 @@ describe('Project Elysia chat MVP', () => {
         ).length,
       ).toBeGreaterThan(1),
     )
+  })
+})
+
+describe('Batch 7 dashboards', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    localStorage.clear()
+  })
+  it('renders all relationship metrics and accessible progress bars', async () => {
+    mockBackend()
+    renderApp('/relationship/1')
+    expect(
+      await screen.findByRole('heading', { name: 'Relationship' }),
+    ).toBeInTheDocument()
+    expect(screen.getAllByRole('progressbar')).toHaveLength(7)
+    expect(
+      screen.getByRole('progressbar', { name: 'Trust 75 of 100' }),
+    ).toBeInTheDocument()
+    expect(screen.getAllByText('Negative metric')).toHaveLength(2)
+  })
+  it('shows relationship validation and event filters', async () => {
+    mockBackend()
+    renderApp('/relationship/1')
+    await userEvent.click(await screen.findByRole('button', { name: 'Update' }))
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Save audit event' }),
+    )
+    expect(screen.getByRole('alert')).toHaveTextContent('reason is required')
+    expect(screen.getByRole('combobox', { name: 'Source' })).toBeInTheDocument()
+  })
+  it('renders memory counts, filters, and manual creation form', async () => {
+    mockBackend()
+    renderApp('/memories/1')
+    expect(
+      await screen.findByRole('heading', { name: 'Memories' }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Status' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'New memory' }))
+    expect(
+      screen.getByRole('dialog', { name: 'Create manual memory' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Confirmed (1.0)')).toBeInTheDocument()
+  })
+  it('renders settings sections and applies theme without reload', async () => {
+    mockBackend()
+    renderApp('/settings')
+    expect(
+      await screen.findByRole('heading', { name: 'Settings' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: 'AI and Ollama' }),
+    ).toBeInTheDocument()
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: 'Theme' }),
+      'light',
+    )
+    expect(document.documentElement).toHaveAttribute('data-theme', 'light')
   })
 })

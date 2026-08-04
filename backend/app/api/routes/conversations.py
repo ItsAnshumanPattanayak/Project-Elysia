@@ -11,9 +11,12 @@ from app.api.errors import error_payload
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.relationship.schemas import (
+    EventSource,
     ManualRelationshipUpdate,
     RelationshipApplicationResult,
     RelationshipEventListResponse,
+    RelationshipEventType,
+    RelationshipRecalculationResponse,
     RelationshipStateResponse,
 )
 from app.schemas.conversation_api import (
@@ -120,8 +123,20 @@ def get_relationship_events(
     service: Service,
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
+    event_type: RelationshipEventType | None = None,
+    source: EventSource | None = None,
+    reverted: bool | None = None,
+    oldest_first: bool = False,
 ) -> RelationshipEventListResponse:
-    return service.relationship_history(conversation_id, limit=limit, offset=offset)
+    return service.relationship_history(
+        conversation_id,
+        limit=limit,
+        offset=offset,
+        event_type=event_type.value if event_type else None,
+        source=source.value if source else None,
+        reverted=reverted,
+        oldest_first=oldest_first,
+    )
 
 
 @router.patch(
@@ -133,6 +148,16 @@ async def update_relationship(
     service: Service,
 ) -> RelationshipApplicationResult:
     return await service.manual_relationship_update(conversation_id, payload)
+
+
+@router.post(
+    "/{conversation_id}/relationship/recalculate",
+    response_model=RelationshipRecalculationResponse,
+)
+async def recalculate_relationship(
+    conversation_id: int, service: Service
+) -> RelationshipRecalculationResponse:
+    return await service.recalculate_relationship(conversation_id)
 
 
 @router.patch("/{conversation_id}", response_model=ConversationDetailResponse)

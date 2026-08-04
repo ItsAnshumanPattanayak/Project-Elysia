@@ -1,5 +1,9 @@
 # Relationship Engine
 
+The [relationship dashboard](RELATIONSHIP_DASHBOARD.md) manages this deterministic
+engine. Manual changes are audited, locks suppress automatic changes, and recovery
+recalculation replays active history without AI or message/memory mutation.
+
 Batch 4 applies deterministic relationship changes only after a completed character reply has been persisted. The model may suggest an event label, but it cannot provide numeric score changes. The backend validates suggestions against a controlled taxonomy and inspectable text/context signals; insufficient evidence becomes `neutral`.
 
 ## Pipeline

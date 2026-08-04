@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useId, useRef, type ReactNode } from 'react'
 
 export function Modal({
   title,
@@ -10,6 +10,7 @@ export function Modal({
   children: ReactNode
 }) {
   const panel = useRef<HTMLDivElement>(null)
+  const titleId = useId()
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null
     const preferred =
@@ -51,11 +52,11 @@ export function Modal({
         className="modal"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="modal-title"
+        aria-labelledby={titleId}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="modal-heading">
-          <h2 id="modal-title">{title}</h2>
+          <h2 id={titleId}>{title}</h2>
           <button
             className="icon-button"
             type="button"

@@ -1,7 +1,7 @@
 import asyncio
 from collections.abc import AsyncIterator
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal, cast
 
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -21,6 +21,7 @@ from app.relationship.schemas import (
     ManualRelationshipUpdate,
     RelationshipApplicationResult,
     RelationshipEventListResponse,
+    RelationshipRecalculationResponse,
     RelationshipStateResponse,
 )
 from app.repositories.conversations import ConversationRepository
@@ -65,6 +66,7 @@ from app.services.conversation_errors import (
 )
 from app.services.conversation_lock_service import ConversationLockService
 from app.services.relationship_service import RelationshipService
+from app.services.settings_service import SettingsService
 
 
 class ConversationService:
@@ -86,6 +88,13 @@ class ConversationService:
         self.memory_application = MemoryApplicationService(session, settings)
         self.memory_lifecycle = MemoryLifecycleService(session, settings)
         self.memory_repository = MemoryRepository(session)
+        self.application_settings = SettingsService(session, settings)
+
+    def _feature_enabled(self, key: str) -> bool:
+        values = {
+            item.key: item.value for item in self.application_settings.get().items
+        }
+        return values.get(key) is True
 
     def _record_memory_usage(self, character: Message) -> None:
         selected = self.context_builder.last_selected_memory_ids
@@ -103,6 +112,10 @@ class ConversationService:
         character: Message,
         result: GenerationResult,
     ) -> MemoryProcessingResult:
+        if not self._feature_enabled("auto_memory_enabled"):
+            return MemoryProcessingResult(
+                warnings=["Automatic memory processing is disabled in settings."]
+            )
         processing = self.memory_application.apply_exchange(
             conversation,
             user,
@@ -285,16 +298,30 @@ class ConversationService:
         *,
         exclude_sequence: int | None = None,
     ) -> GenerationRequest:
+        application_values = {
+            item.key: item.value for item in self.application_settings.get().items
+        }
         context = self.context_builder.build(
             conversation,
             behaviour_hint=payload.behaviour_hint,
-            response_length=payload.response_length,
+            response_length=payload.response_length
+            or cast(
+                Literal["concise", "balanced", "detailed"],
+                application_values["response_length"],
+            ),
             language_mode=payload.language_mode,
             exclude_sequence=exclude_sequence,
         )
+        overrides: dict[str, Any] = self.application_settings.generation_overrides()
+        overrides.update(payload.generation_overrides.model_dump(exclude_none=True))
         return GenerationRequest(
             context=context,
-            **payload.generation_overrides.model_dump(exclude_none=True),
+            model=(
+                str(application_values["selected_model"])
+                if application_values["selected_model"]
+                else None
+            ),
+            **overrides,
         )
 
     @staticmethod
@@ -416,16 +443,17 @@ class ConversationService:
             warnings: list[str] = []
             relationship: RelationshipApplicationResult | None = None
             memory: MemoryProcessingResult | None = None
-            try:
-                relationship = self.relationships.apply_exchange(
-                    conversation, user, character, result.parsed_response
-                )
-            except Exception:
-                self.session.rollback()
-                warnings.append(
-                    "The exchange was saved, but relationship processing failed and "
-                    "can be recalculated."
-                )
+            if self._feature_enabled("relationship_engine_enabled"):
+                try:
+                    relationship = self.relationships.apply_exchange(
+                        conversation, user, character, result.parsed_response
+                    )
+                except Exception:
+                    self.session.rollback()
+                    warnings.append(
+                        "The exchange was saved, but relationship processing failed "
+                        "and can be recalculated."
+                    )
             try:
                 memory = self._apply_memory(conversation, user, character, result)
             except Exception:
@@ -546,19 +574,20 @@ class ConversationService:
                             ) from exc
                         relationship = None
                         relationship_warning = None
-                        try:
-                            relationship = self.relationships.apply_exchange(
-                                conversation,
-                                user,
-                                character,
-                                result.parsed_response,
-                            )
-                        except Exception:
-                            self.session.rollback()
-                            relationship_warning = (
-                                "The exchange was saved, but relationship processing "
-                                "failed and can be recalculated."
-                            )
+                        if self._feature_enabled("relationship_engine_enabled"):
+                            try:
+                                relationship = self.relationships.apply_exchange(
+                                    conversation,
+                                    user,
+                                    character,
+                                    result.parsed_response,
+                                )
+                            except Exception:
+                                self.session.rollback()
+                                relationship_warning = (
+                                    "The exchange was saved, but relationship "
+                                    "processing failed and can be recalculated."
+                                )
                         memory = None
                         memory_warning = None
                         try:
@@ -646,15 +675,17 @@ class ConversationService:
                 warnings: list[str] = []
                 relationship = None
                 memory = None
-                try:
-                    relationship = self.relationships.apply_exchange(
-                        conversation, latest, character, result.parsed_response
-                    )
-                except Exception:
-                    self.session.rollback()
-                    warnings.append(
-                        "The response was saved, but relationship processing failed."
-                    )
+                if self._feature_enabled("relationship_engine_enabled"):
+                    try:
+                        relationship = self.relationships.apply_exchange(
+                            conversation, latest, character, result.parsed_response
+                        )
+                    except Exception:
+                        self.session.rollback()
+                        warnings.append(
+                            "The response was saved, but relationship processing "
+                            "failed."
+                        )
                 try:
                     memory = self._apply_memory(conversation, latest, character, result)
                 except Exception:
@@ -844,10 +875,26 @@ class ConversationService:
         return self.relationships.state(self._get(conversation_id))
 
     def relationship_history(
-        self, conversation_id: int, *, limit: int, offset: int
+        self,
+        conversation_id: int,
+        *,
+        limit: int,
+        offset: int,
+        event_type: str | None = None,
+        source: str | None = None,
+        reverted: bool | None = None,
+        oldest_first: bool = False,
     ) -> RelationshipEventListResponse:
         self._get(conversation_id)
-        return self.relationships.history(conversation_id, limit=limit, offset=offset)
+        return self.relationships.history(
+            conversation_id,
+            limit=limit,
+            offset=offset,
+            event_type=event_type,
+            source=source,
+            reverted=reverted,
+            oldest_first=oldest_first,
+        )
 
     async def manual_relationship_update(
         self, conversation_id: int, payload: ManualRelationshipUpdate
@@ -857,3 +904,23 @@ class ConversationService:
         ):
             conversation = self._get(conversation_id)
             return self.relationships.manual_update(conversation, payload)
+
+    async def recalculate_relationship(
+        self, conversation_id: int
+    ) -> RelationshipRecalculationResponse:
+        async with self.locks.acquire(
+            conversation_id, self.settings.conversation_lock_timeout_seconds
+        ):
+            conversation = self._get(conversation_id)
+            before = self.relationships.state(conversation)
+            self.relationships.recalculate(conversation)
+            self.session.commit()
+            after = self.relationships.state(conversation)
+            return RelationshipRecalculationResponse(
+                before=before,
+                after=after,
+                warnings=[
+                    "Messages, memories, and turn count were not changed.",
+                    "No AI model was called.",
+                ],
+            )

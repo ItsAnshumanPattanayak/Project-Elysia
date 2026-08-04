@@ -14,6 +14,7 @@ from app.character_engine.exceptions import (
 )
 from app.memory.exceptions import MemoryError
 from app.services.conversation_errors import ConversationError
+from app.services.settings_service import SettingsApiError
 
 
 def error_payload(
@@ -99,6 +100,15 @@ async def conversation_error_handler(_: Request, exc: Exception) -> JSONResponse
 
 async def memory_error_handler(_: Request, exc: Exception) -> JSONResponse:
     if not isinstance(exc, MemoryError):
+        raise exc
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=error_payload(exc.code, exc.message),
+    )
+
+
+async def settings_error_handler(_: Request, exc: Exception) -> JSONResponse:
+    if not isinstance(exc, SettingsApiError):
         raise exc
     return JSONResponse(
         status_code=exc.status_code,

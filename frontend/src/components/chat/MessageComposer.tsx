@@ -8,6 +8,7 @@ export function MessageComposer({
   phase,
   disabled,
   onRetry,
+  enterToSend = true,
 }: {
   value: string
   onChange: (value: string) => void
@@ -16,6 +17,7 @@ export function MessageComposer({
   phase: StreamPhase
   disabled: boolean
   onRetry: () => void
+  enterToSend?: boolean
 }) {
   const active = [
     'submitting',
@@ -52,7 +54,7 @@ export function MessageComposer({
           disabled={disabled || active}
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === 'Enter' && !event.shiftKey) {
+            if (enterToSend && event.key === 'Enter' && !event.shiftKey) {
               event.preventDefault()
               if (value.trim() && !active && !disabled) onSend()
             }

@@ -45,6 +45,7 @@ def list_memories(
     memory_type: MemoryType | None = None,
     source: MemorySource | None = None,
     pinned: bool | None = None,
+    locked: bool | None = None,
     sensitive: bool | None = None,
     query: str | None = Query(default=None, max_length=2000),
 ) -> MemoryListResponse:
@@ -62,6 +63,7 @@ def list_memories(
         memory_type=memory_type.value if memory_type else None,
         source=source.value if source else None,
         pinned=pinned,
+        locked=locked,
         sensitive=sensitive,
         query=query,
     )

@@ -90,6 +90,34 @@ def test_failed_generation_creates_no_relationship_event(
     assert (current.trust, current.affection, current.turn_count) == (75, 72, 0)
 
 
+def test_relationship_history_filters_and_recalculation_snapshot(
+    client: TestClient, db_session: Session
+) -> None:
+    conversation_id = seeded_conversation(db_session)
+    send(client, conversation_id)
+    manual = client.patch(
+        f"/api/conversations/{conversation_id}/relationship",
+        json={"trust": 81, "reason": "Local dashboard verification."},
+    )
+    assert manual.status_code == 200
+    filtered = client.get(
+        f"/api/conversations/{conversation_id}/relationship/events",
+        params={"source": "manual", "reverted": False, "oldest_first": True},
+    )
+    assert filtered.status_code == 200
+    assert filtered.json()["total"] == 1
+    assert filtered.json()["items"][0]["source"] == "manual"
+
+    recalculated = client.post(
+        f"/api/conversations/{conversation_id}/relationship/recalculate"
+    )
+    assert recalculated.status_code == 200
+    result = recalculated.json()
+    assert result["before"]["turn_count"] == result["after"]["turn_count"]
+    assert result["after"]["trust"] == 81
+    assert "No AI model was called." in result["warnings"]
+
+
 def test_relationship_failure_is_non_fatal_after_completed_chat(
     client: TestClient,
     db_session: Session,

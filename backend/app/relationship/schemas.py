@@ -146,6 +146,7 @@ class RelationshipStateResponse(RelationshipValues):
     turn_count: int
     locked_values: dict[str, bool]
     baseline_values: dict[str, Any]
+    updated_at: datetime
 
 
 class RelationshipEventResponse(BaseModel):
@@ -178,6 +179,12 @@ class RelationshipEventListResponse(BaseModel):
     limit: int
     offset: int
     has_more: bool
+
+
+class RelationshipRecalculationResponse(BaseModel):
+    before: RelationshipStateResponse
+    after: RelationshipStateResponse
+    warnings: list[str]
 
 
 class ManualRelationshipUpdate(BaseModel):

@@ -1,5 +1,9 @@
 # Architecture
 
+Batch 7 keeps dashboard filters/forms local to each route and uses a normalized
+settings provider for browser and safe backend preferences. Existing relationship,
+memory, AI, and `ApplicationSetting` models are reused; no migration is required.
+
 ```text
 FastAPI routes
     ↓

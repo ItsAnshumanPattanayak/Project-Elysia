@@ -62,6 +62,7 @@ class MemoryRepository:
         memory_type: str | None = None,
         source: str | None = None,
         pinned: bool | None = None,
+        locked: bool | None = None,
         sensitive: bool | None = None,
         query: str | None = None,
     ) -> tuple[list[Memory], int]:
@@ -74,6 +75,8 @@ class MemoryRepository:
             filters.append(Memory.source == source)
         if pinned is not None:
             filters.append(Memory.is_pinned == pinned)
+        if locked is not None:
+            filters.append(Memory.is_locked == locked)
         if sensitive is not None:
             filters.append(Memory.is_sensitive == sensitive)
         if query:

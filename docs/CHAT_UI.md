@@ -1,5 +1,10 @@
 # Chat UI
 
+Batch 7 preserves `/chat/:conversationId` and drafts while adding management links.
+Streaming, Enter-to-send, draft persistence, timestamps, emotion badges, memory
+indicators, and relationship-panel visibility are safe preferences. Non-stream mode
+uses the existing local message endpoint.
+
 ## Conversation workflow
 
 "New conversation" loads the real character catalogue, defaults to Zara when
@@ -57,4 +62,3 @@ announcing every token.
 
 All model/user content is rendered through React text nodes. Layouts wrap long
 content, honor reduced motion, and support keyboard-only operation.
-

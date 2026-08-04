@@ -1,5 +1,9 @@
 # Long-Term Memory System
 
+The [memory dashboard](MEMORY_DASHBOARD.md) adds scoped lifecycle management.
+Version 1 archives instead of physically deleting. Manual memories survive automatic
+rebuilds, and locked destructive changes remain explicit.
+
 Batch 5 adds a local, deterministic and user-controllable memory layer. It prefers a small number of supported memories over recording every sentence. Model candidates are untrusted suggestions; only backend rules decide what becomes active memory.
 
 ## Taxonomy and sources

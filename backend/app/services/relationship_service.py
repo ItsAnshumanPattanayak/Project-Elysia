@@ -303,12 +303,29 @@ class RelationshipService:
                 key: bool(value) for key, value in state.locked_values.items()
             },
             baseline_values=state.baseline_values,
+            updated_at=state.updated_at,
         )
 
     def history(
-        self, conversation_id: int, *, limit: int, offset: int
+        self,
+        conversation_id: int,
+        *,
+        limit: int,
+        offset: int,
+        event_type: str | None = None,
+        source: str | None = None,
+        reverted: bool | None = None,
+        oldest_first: bool = False,
     ) -> RelationshipEventListResponse:
-        items, total = self.events.page(conversation_id, limit=limit, offset=offset)
+        items, total = self.events.page(
+            conversation_id,
+            limit=limit,
+            offset=offset,
+            event_type=event_type,
+            source=source,
+            reverted=reverted,
+            oldest_first=oldest_first,
+        )
         return RelationshipEventListResponse(
             items=[RelationshipEventResponse.model_validate(item) for item in items],
             total=total,
