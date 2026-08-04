@@ -1,20 +1,22 @@
 import type { ReactNode } from 'react'
+import { ConversationSidebar } from '../components/conversations/ConversationSidebar'
+import { NewConversationDialog } from '../components/conversations/NewConversationDialog'
+import { useApp } from '../state/AppContext'
 
 export function AppLayout({ children }: { children: ReactNode }) {
+  const { drawerOpen, setDrawerOpen } = useApp()
   return (
-    <div className="shell">
-      <header>
-        <a href="/" className="brand">
-          <span className="mark">E</span>
-          <span>Project Elysia</span>
-        </a>
-        <span className="batch">Relationship engine · Batch 4</span>
-      </header>
-      {children}
-      <footer>
-        <span>Runs on your machine</span>
-        <span>Private by design · No telemetry</span>
-      </footer>
+    <div className="app-shell">
+      <ConversationSidebar />
+      {drawerOpen && (
+        <button
+          className="drawer-scrim"
+          aria-label="Close conversations"
+          onClick={() => setDrawerOpen(false)}
+        />
+      )}
+      <div className="app-main">{children}</div>
+      <NewConversationDialog />
     </div>
   )
 }

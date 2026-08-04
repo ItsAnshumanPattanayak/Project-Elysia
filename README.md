@@ -1,15 +1,15 @@
 # Project Elysia
 
-**Status: Batch 5 — local long-term memory system**
+**Status: Batch 6 — frontend foundation and local chat MVP**
 
-Project Elysia is a private, local-first AI character roleplay application. The backend now includes conservative memory extraction, auditable SQLite persistence, deterministic lexical retrieval, prompt recall, lifecycle recovery, and manual memory controls alongside the existing conversation and relationship systems. The finished chat frontend, memory dashboard, semantic/vector retrieval, and automatic summaries remain deferred.
+Project Elysia is a private, local-first AI character roleplay application. The React client now provides responsive conversation navigation, accessible creation and lifecycle controls, paginated history, structured chat rendering, per-conversation drafts, fetch-based SSE generation, message edit/delete/regeneration, and compact relationship and memory context. Full management dashboards, semantic/vector retrieval, and automatic summaries remain deferred.
 
 There are no accounts, payments, subscriptions, telemetry, paid APIs, automatic model downloads, or cloud AI fallbacks.
 
 ## Architecture
 
 ```text
-React status screen → loopback FastAPI routes
+React chat client → typed loopback API + POST/SSE stream
                          ↓
                 ConversationService
                   ↙             ↘
@@ -137,6 +137,6 @@ See [memory system](docs/MEMORY_SYSTEM.md) and [retrieval design](docs/MEMORY_RE
 
 ## Current boundaries
 
-Memory extraction is deliberately narrow and lexical retrieval is not semantic understanding. Summaries are not automatically created. Relationship scoring remains conservative and inspectable. The frontend remains a system foundation screen and intentionally exposes no unfinished memory dashboard.
+Memory extraction is deliberately narrow and lexical retrieval is not semantic understanding. Summaries are not automatically created. Relationship scoring remains conservative and inspectable. Batch 6 shows compact relationship and memory summaries but intentionally does not expose unfinished management dashboards. Real generation still depends on an already-installed, correctly configured local Ollama model.
 
-See [conversation API](docs/CONVERSATION_API.md), [lifecycle](docs/CONVERSATION_LIFECYCLE.md), [architecture](docs/ARCHITECTURE.md), [data model](docs/DATA_MODEL.md), and [safety](docs/SAFETY_AND_PRIVACY.md).
+See [frontend architecture](docs/FRONTEND_ARCHITECTURE.md), [chat UI](docs/CHAT_UI.md), [streaming client](docs/STREAMING_CLIENT.md), [conversation API](docs/CONVERSATION_API.md), [lifecycle](docs/CONVERSATION_LIFECYCLE.md), [architecture](docs/ARCHITECTURE.md), [data model](docs/DATA_MODEL.md), and [safety](docs/SAFETY_AND_PRIVACY.md).

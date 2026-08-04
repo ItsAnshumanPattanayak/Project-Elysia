@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api } from '../api/client'
+import { getAIStatus, getHealth } from '../api/system'
 import type { AIStatus, HealthStatus } from '../types/system'
 import { LoadingScreen } from './LoadingScreen'
 
@@ -25,9 +25,9 @@ export function AppStatus() {
     setLoading(true)
     setError('')
     try {
-      setHealth(await api.health())
+      setHealth(await getHealth())
       try {
-        setAI(await api.aiStatus(refreshAI))
+        setAI(await getAIStatus(refreshAI))
       } catch {
         setAI(unavailableStatus)
       }
